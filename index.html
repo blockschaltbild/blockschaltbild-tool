@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockschaltbild Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="toolbar-menu.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="toolbar">
+            <div class="toolbar-group brand">
+                <img class="brand-logo" id="brandLogo" alt="ICT by Econocom">
+                <span class="brand-sub">Blockschaltbild</span>
+            </div>
+            <div class="toolbar-group project-info">
+                <input type="text" id="projectName" placeholder="Projektname" title="Projektname">
+                <input type="text" id="projectNumber" placeholder="Projekt-Nr." title="Projektnummer">
+                <button id="btnProjectSettings" title="Projekt-Einstellungen">⚙</button>
+            </div>
+
+            <button id="btnMenuToggle" class="menu-toggle" title="Menü ein-/ausblenden" aria-expanded="false" aria-controls="toolbarMenus">☰ Menü</button>
+
+            <nav class="toolbar-menus" id="toolbarMenus">
+                <div class="menu-dropdown">
+                    <button type="button" class="menu-trigger" data-menu="datei">Datei ▾</button>
+                    <div class="menu-panel" id="menuDatei">
+                        <button id="btnNew" title="Neues Diagramm">Neu</button>
+                        <button id="btnSave" title="Speichern">Speichern</button>
+                        <button id="btnLoad" title="Laden">Laden</button>
+                        <input type="file" id="fileLoad" accept=".json" style="display:none">
+                    </div>
+                </div>
+
+                <div class="menu-dropdown">
+                    <button type="button" class="menu-trigger" data-menu="geraete">Geräte ▾</button>
+                    <div class="menu-panel" id="menuGeraete">
+                        <button id="btnImportDevices" title="Geräte importieren (Excel/TXT/PDF)">Geräte importieren</button>
+                        <input type="file" id="fileImportDevices" accept=".txt,.csv,.pdf,.xlsx,.xls" style="display:none">
+                        <button id="btnExcelTemplate" title="Excel-Vorlage für Geräteimport herunterladen">Excel-Vorlage</button>
+                        <button id="btnAddDevice" title="Gerät hinzufügen">+ Gerät</button>
+                        <button id="btnAddPlaceholder" title="Platzhalter einfügen (nur in diesem Projekt, nicht in der Bibliothek)">+ Platzhalter</button>
+                        <button id="btnAddTextbox" title="Textfeld einfügen (Textgröße, Text- und Rahmenfarbe in den Eigenschaften)">+ Textfeld</button>
+                        <button id="btnManageDevices" title="Geräte verwalten">Geräte verwalten</button>
+                        <button id="btnManageGroups" title="Gruppen verwalten">Gruppen verwalten</button>
+                        <button id="btnManageCables" title="Kabel verwalten">Kabel verwalten</button>
+                    </div>
+                </div>
+
+                <div class="menu-dropdown">
+                    <button type="button" class="menu-trigger" data-menu="verbindungen">Verbindungen ▾</button>
+                    <div class="menu-panel" id="menuVerbindungen">
+                        <button id="btnAutoConnect" title="Automatisch verbinden">Auto-Verbinden</button>
+                        <button id="btnClearConnections" title="Alle Verbindungen löschen">Verbindungen löschen</button>
+                        <button id="btnCheckSignals" title="Bestehende Verbindungen auf Signalkompatibilität prüfen: fehlende Konverter einfügen, überflüssige entfernen">Signale prüfen</button>
+                        <label title="Bei inkompatiblen Signalen (z.B. HDMI → SDI) automatisch einen Konverter einfügen"><input type="checkbox" id="chkAutoConverter" checked> Auto-Konverter</label>
+                    </div>
+                </div>
+
+                <div class="menu-dropdown">
+                    <button type="button" class="menu-trigger" data-menu="export">Export ▾</button>
+                    <div class="menu-panel" id="menuExport">
+                        <button id="btnExportPDF" title="Als PDF exportieren (A1 Querformat)">PDF Export (A1)</button>
+                        <button id="btnExportLists" title="Geräte- und Kabelliste als PDF">Listen PDF</button>
+                        <button id="btnExportDevices" title="Geräte als Excel exportieren">Geräte Export</button>
+                        <button id="btnPrint" title="Drucken">Drucken</button>
+                        <label title="Geräte nur mit schwarzen Umrissen exportieren, farbig bleiben nur die Verbindungslinien"><input type="checkbox" id="chkExportMono"> S/W-Geräte</label>
+                    </div>
+                </div>
+
+                <div class="menu-dropdown">
+                    <button type="button" class="menu-trigger" data-menu="ansicht">Ansicht ▾</button>
+                    <div class="menu-panel menu-panel-ansicht" id="menuAnsicht">
+                        <label title="Raster anzeigen"><input type="checkbox" id="chkGridVisible" checked> Raster</label>
+                        <label title="Am Raster einrasten"><input type="checkbox" id="chkSnapGrid" checked> Einrasten</label>
+                        <label class="grid-size-label">Rastergröße
+                            <input type="number" id="gridSizeInput" value="20" min="5" max="200" step="5" title="Rastergröße in px">
+                        </label>
+                        <select id="selLineStyle" title="Darstellung der Verbindungen">
+                            <option value="curve">Kurve</option>
+                            <option value="orthogonal">90° Ecken</option>
+                        </select>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="toolbar-group zoom-controls">
+                <button id="btnZoomOut" title="Verkleinern">−</button>
+                <span id="zoomLevel">100%</span>
+                <button id="btnZoomIn" title="Vergrößern">+</button>
+                <button id="btnFitView" title="An Fenster anpassen">Anpassen</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <h3>Geräte-Bibliothek</h3>
+                    <button id="btnToggleSidebar" class="toggle-sidebar" title="Bibliothek ein-/ausblenden">◀</button>
+                </div>
+                <div class="sidebar-content" id="sidebarContent">
+                    <div class="search-box">
+                        <input type="text" id="deviceSearch" placeholder="🔍 Gerät suchen...">
+                        <button type="button" class="search-clear" id="btnClearDeviceSearch" title="Suche löschen" aria-label="Suche löschen" hidden>&times;</button>
+                    </div>
+                    <div class="group-filter">
+                        <select id="groupFilter">
+                            <option value="all">Alle Gruppen</option>
+                        </select>
+                    </div>
+                    <div id="deviceLibrary" class="device-library"></div>
+                    <hr>
+                    <h3>Eigenschaften</h3>
+                    <div id="propertiesPanel" class="properties-panel">
+                        <p class="hint">Wählen Sie ein Element aus</p>
+                    </div>
+                </div>
+                <div class="sidebar-resize" id="sidebarResize"></div>
+            </aside>
+
+            <main class="canvas-container">
+                <div class="sheet-tabs" id="sheetTabs">
+                    <div class="sheet-tab-list" id="sheetTabList"></div>
+                    <button id="btnAddSheet" title="Neuer Arbeitsbereich">+</button>
+                </div>
+                <div class="project-header" id="projectHeader">
+                    <div class="project-header-lines">
+                        <span id="displayProjectName">Neues Projekt</span>
+                        <span id="displayProjectNumber"></span>
+                        <span id="displayProjectMeta"></span>
+                    </div>
+                </div>
+                <div id="canvasWrapper" class="canvas-wrapper">
+                    <svg id="diagramCanvas" class="diagram-canvas"></svg>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="deviceModal" class="modal">
+        <div class="modal-content">
+            <h2 id="deviceModalTitle">Neues Gerät erstellen</h2>
+            <div id="deviceStep1">
+                <div class="form-row">
+                    <label>Name: <input type="text" id="deviceName" required></label>
+                    <label>Artikelnummer: <input type="text" id="deviceArticle" placeholder="z.B. XLR-2000"></label>
+                </div>
+                <div class="form-row">
+                    <label>Typ: <input type="text" id="deviceType" placeholder="z.B. Mixer, Verstärker"></label>
+                    <label>Gruppe:
+                        <select id="deviceGroup">
+                            <option value="audio">Ton</option>
+                            <option value="video">Video</option>
+                            <option value="light">Licht</option>
+                            <option value="control">Steuerung</option>
+                            <option value="other">Sonstiges</option>
+                        </select>
+                    </label>
+                </div>
+                <label>Farbe: <input type="color" id="deviceColor" value="#4a90d9"></label>
+                <div class="form-row">
+                    <label>Anzahl Eingänge: <input type="number" id="deviceInputCount" value="2" min="0" max="64"></label>
+                    <label>Anzahl Ausgänge: <input type="number" id="deviceOutputCount" value="2" min="0" max="64"></label>
+                </div>
+                <label class="checkbox-row" id="devicePlaceholderRow" title="Gerät nur in diesem Projekt verwenden, nicht dauerhaft in der Bibliothek speichern">
+                    <input type="checkbox" id="chkDevicePlaceholder"> Platzhalter – nur für dieses Projekt, nicht in Bibliothek speichern
+                </label>
+                <div class="modal-buttons">
+                    <button type="button" id="btnDeviceNext">Weiter →</button>
+                    <button type="button" id="btnCancelDevice">Abbrechen</button>
+                </div>
+            </div>
+            <form id="deviceForm" style="display:none">
+                <div id="deviceStep2Info" class="step-info"></div>
+                <div class="io-section">
+                    <h4>Eingänge benennen</h4>
+                    <div id="inputsList"></div>
+                </div>
+                <div class="io-section">
+                    <h4>Ausgänge benennen</h4>
+                    <div id="outputsList"></div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" id="btnDeviceBack">← Zurück</button>
+                    <button type="submit" id="btnSubmitDevice">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="groupModal" class="modal">
+        <div class="modal-content">
+            <h2>Gruppen verwalten</h2>
+            <div class="search-box">
+                <input type="text" id="groupSearch" placeholder="🔍 Gruppe suchen...">
+            </div>
+            <div id="groupsList" class="groups-list"></div>
+            <div class="add-group-row">
+                <input type="text" id="newGroupName" placeholder="Neue Gruppe">
+                <input type="color" id="newGroupColor" value="#4a90d9">
+                <button type="button" id="btnAddGroup">+ Hinzufügen</button>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="btnCloseGroups">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <h2>Projektdaten</h2>
+            <form id="projectForm">
+                <label>Name: <input type="text" id="projName"></label>
+                <label>Projektnummer: <input type="text" id="projNumber"></label>
+                <div class="form-row">
+                    <label>Veranstaltung vom: <input type="date" id="projEventFrom"></label>
+                    <label>bis: <input type="date" id="projEventTo"></label>
+                </div>
+                <label>Veranstaltungsort: <input type="text" id="projLocation"></label>
+                <label>Ersteller: <input type="text" id="projAuthor"></label>
+                <div class="modal-buttons">
+                    <button type="submit">Übernehmen</button>
+                    <button type="button" id="btnCancelProject">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="deviceManageModal" class="modal">
+        <div class="modal-content modal-large">
+            <h2>Geräte verwalten</h2>
+            <div class="search-box">
+                <input type="text" id="manageDeviceSearch" placeholder="🔍 Gerät suchen...">
+            </div>
+            <div id="manageDevicesList" class="manage-list"></div>
+            <div class="modal-buttons">
+                <button type="button" id="btnManageAddDevice">+ Neues Gerät</button>
+                <button type="button" id="btnExportLibrary">Bibliothek exportieren</button>
+                <button type="button" id="btnImportLibrary">Bibliothek importieren</button>
+                <input type="file" id="fileImportLibrary" accept=".json" style="display:none">
+                <button type="button" id="btnResetLibrary">Bibliothek zurücksetzen</button>
+                <button type="button" id="btnCloseManageDevices">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cableModal" class="modal">
+        <div class="modal-content">
+            <h2>Kabel verwalten</h2>
+            <div class="search-box">
+                <input type="text" id="cableSearch" placeholder="🔍 Kabel suchen...">
+            </div>
+            <div id="cablesList" class="manage-list"></div>
+            <div class="add-group-row">
+                <input type="text" id="newCableName" placeholder="Neuer Kabeltyp">
+                <button type="button" id="btnAddCable">+ Hinzufügen</button>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="btnCloseCables">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <h2>Geräte exportieren</h2>
+            <p class="hint">Export als Excel-Datei (kompatibel mit dem Geräteimport).</p>
+            <div class="add-group-row">
+                <button type="button" id="btnExportAllDevices">Alle Geräte (Gesamtliste)</button>
+                <button type="button" id="btnExportGroupSheets">Alle Gruppen (je Tabellenblatt)</button>
+            </div>
+            <div id="exportGroupsList" class="manage-list"></div>
+            <div class="modal-buttons">
+                <button type="button" id="btnCloseExport">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pdfImportModal" class="modal">
+        <div class="modal-content modal-large">
+            <h2>Gerät aus Datenblatt importieren</h2>
+            <div id="pdfAnalysisStatus" class="analysis-status">
+                <div class="spinner"></div>
+                <p>Analysiere Datenblatt...</p>
+            </div>
+            <form id="pdfDeviceForm" style="display:none">
+                <div class="detected-info">
+                    <p><strong>Erkannte Informationen:</strong></p>
+                </div>
+                <div class="form-row">
+                    <label>Name: <input type="text" id="pdfDeviceName" required></label>
+                    <label>Artikelnummer: <input type="text" id="pdfDeviceArticle"></label>
+                </div>
+                <div class="form-row">
+                    <label>Typ: <input type="text" id="pdfDeviceType"></label>
+                    <label>Gruppe:
+                        <select id="pdfDeviceGroup">
+                            <option value="audio">Ton</option>
+                            <option value="video">Video</option>
+                            <option value="light">Licht</option>
+                            <option value="control">Steuerung</option>
+                            <option value="other">Sonstiges</option>
+                        </select>
+                    </label>
+                </div>
+                <label>Farbe: <input type="color" id="pdfDeviceColor" value="#4a90d9"></label>
+                <div class="io-section">
+                    <h4>Erkannte Eingänge</h4>
+                    <div id="pdfInputsList"></div>
+                    <button type="button" id="btnPdfAddInput">+ Eingang</button>
+                </div>
+                <div class="io-section">
+                    <h4>Erkannte Ausgänge</h4>
+                    <div id="pdfOutputsList"></div>
+                    <button type="button" id="btnPdfAddOutput">+ Ausgang</button>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit">Gerät anlegen</button>
+                    <button type="button" id="btnCancelPdfImport">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <script src="logo.js"></script>
+    <script>
+        document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
+    </script>
+    <script src="app-core.js"></script>
+    <script src="app-library.js"></script>
+    <script src="app-canvas.js"></script>
+    <script src="app-connections.js"></script>
+    <script src="app-modals.js"></script>
+    <script src="app-export.js"></script>
+    <script src="app-events.js"></script>
+    <script src="app-bootstrap.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+# Beispiel Gerätedatei für Blockschaltbild Editor
+# Format: [Gerätename], dann Eigenschaften pro Zeile
+# Neue Felder: Artikelnummer, Gruppe (audio, video, light, control, other)
+# Kabeltyp je Anschluss optional mit Doppelpunkt: Eingänge=IN 1:XLR, IN 2:XLR
+
+[Yamaha CL5]
+Typ=Digital Mixer
+Artikelnummer=CL5-EU
+Gruppe=audio
+Farbe=#2980b9
+Eingänge=IN 1:XLR, IN 2:XLR, IN 3:XLR, IN 4:XLR, IN 5:XLR, IN 6:XLR, IN 7:XLR, IN 8:XLR, IN 9:XLR, IN 10:XLR, IN 11:XLR, IN 12:XLR
+Ausgänge=MAIN L:XLR, MAIN R:XLR, MIX 1:XLR, MIX 2:XLR, MIX 3:XLR, MIX 4:XLR, MATRIX 1:XLR, MATRIX 2:XLR
+
+[QSC PLD4.5]
+Typ=Amplifier
+Artikelnummer=PLD4.5
+Gruppe=audio
+Farbe=#c0392b
+Eingänge=CH 1:XLR, CH 2:XLR, CH 3:XLR, CH 4:XLR
+Ausgänge=SP 1:Speakon, SP 2:Speakon, SP 3:Speakon, SP 4:Speakon
+
+[Shure SM58]
+Typ=Microphone
+Artikelnummer=SM58-LC
+Gruppe=audio
+Farbe=#8e44ad
+Eingänge=
+Ausgänge=XLR OUT
+
+[JBL VRX932LA]
+Typ=Line Array
+Artikelnummer=VRX932LA-1
+Gruppe=audio
+Farbe=#27ae60
+Eingänge=IN +, IN -
+Ausgänge=
+
+[BSS BLU-100]
+Typ=DSP
+Artikelnummer=BLU-100
+Gruppe=audio
+Farbe=#f39c12
+Eingänge=AES A, AES B, ANA 1, ANA 2, ANA 3, ANA 4
+Ausgänge=AES A, AES B, ANA 1, ANA 2, ANA 3, ANA 4
+
+[Barco E2]
+Typ=Video Processor
+Artikelnummer=R9004676
+Gruppe=video
+Farbe=#9b59b6
+Eingänge=SDI 1, SDI 2, SDI 3, SDI 4, HDMI 1, HDMI 2
+Ausgänge=SDI OUT 1, SDI OUT 2, HDMI OUT 1, HDMI OUT 2
+
+[Sony PXW-Z280]
+Typ=Camera
+Artikelnummer=PXW-Z280V
+Gruppe=video
+Farbe=#1abc9c
+Eingänge=
+Ausgänge=SDI 1, SDI 2, HDMI
+
+[MA Lighting grandMA3]
+Typ=Lighting Console
+Artikelnummer=grandMA3-full
+Gruppe=light
+Farbe=#f1c40f
+Eingänge=DMX IN
+Ausgänge=DMX 1, DMX 2, DMX 3, DMX 4, DMX 5, DMX 6, DMX 7, DMX 8
+
+[Robe Robin T1 Profile]
+Typ=Moving Head
+Artikelnummer=10030036
+Gruppe=light
+Farbe=#e67e22
+Eingänge=DMX IN, POWER
+Ausgänge=DMX THRU
+
+[Crestron CP4]
+Typ=Control Processor
+Artikelnummer=CP4
+Gruppe=control
+Farbe=#e67e22
+Eingänge=COM 1, COM 2, IR 1, IR 2
+Ausgänge=RELAY 1, RELAY 2, IO 1, IO 2
