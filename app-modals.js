@@ -504,6 +504,101 @@ const ModalsMixin = {
         document.getElementById('cableModal').classList.remove('active');
     },
 
+    checkConnectionLengths() {
+        const missing = this.connections.filter(c => !c.length || parseFloat(c.length) <= 0);
+        if (missing.length === 0) {
+            alert('Alle Verbindungen haben eine Kabellänge.');
+            return;
+        }
+        this.showMissingLengthsModal(missing);
+    },
+
+    showMissingLengthsModal(missing) {
+        document.getElementById('missingLengthsModal').classList.add('active');
+        this.renderMissingLengthsList(missing);
+    },
+
+    hideMissingLengthsModal() {
+        document.getElementById('missingLengthsModal').classList.remove('active');
+    },
+
+    renderMissingLengthsList(missing) {
+        const list = document.getElementById('missingLengthsList');
+        list.innerHTML = '';
+        const hint = document.getElementById('missingLengthsHint');
+        hint.textContent = `${missing.length} Verbindung(en) ohne Kabellänge. Länge eintragen und speichern.`;
+
+        missing.forEach(conn => {
+            const fromDevice = this.devices.find(d => d.id === conn.fromDevice);
+            const toDevice = this.devices.find(d => d.id === conn.toDevice);
+            const fromPort = fromDevice?.outputs.find(p => p.id === conn.fromPort);
+            const toPort = toDevice?.inputs.find(p => p.id === conn.toPort);
+            const div = document.createElement('div');
+            div.className = 'manage-item missing-length-item';
+            div.innerHTML = `
+                <div class="missing-length-route">
+                    <div class="missing-length-endpoint">
+                        <span class="missing-length-device">${fromDevice?.name || '?'}</span>
+                        <span class="missing-length-port">${fromPort?.name || '?'}</span>
+                    </div>
+                    <span class="missing-length-arrow">⟶</span>
+                    <div class="missing-length-endpoint">
+                        <span class="missing-length-device">${toDevice?.name || '?'}</span>
+                        <span class="missing-length-port">${toPort?.name || '?'}</span>
+                    </div>
+                    ${conn.name ? `<span class="missing-length-name">${conn.name}</span>` : ''}
+                </div>
+                <div class="missing-length-controls">
+                    <label class="missing-length-field">
+                        <input type="number" class="manage-input missing-length-input" min="0" step="0.5" placeholder="Länge">
+                        <span class="missing-length-unit">m</span>
+                    </label>
+                    <button type="button" class="btn-jump-connection">Anzeigen</button>
+                </div>
+            `;
+            const input = div.querySelector('.missing-length-input');
+            input.dataset.connId = conn.id;
+            input.addEventListener('keydown', e => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                const all = Array.from(list.querySelectorAll('.missing-length-input'));
+                const next = all[all.indexOf(input) + 1];
+                if (next) next.focus(); else this.saveMissingLengths();
+            });
+            div.querySelector('.btn-jump-connection').addEventListener('click', () => {
+                this.hideMissingLengthsModal();
+                this.selectElement(conn, 'connection');
+            });
+            list.appendChild(div);
+        });
+    },
+
+    saveMissingLengths() {
+        const inputs = document.querySelectorAll('#missingLengthsList .missing-length-input');
+        let saved = 0;
+        this.recordHistory();
+        inputs.forEach(input => {
+            const value = input.value.trim();
+            if (!value) return;
+            const conn = this.connections.find(c => c.id === input.dataset.connId);
+            if (!conn) return;
+            conn.length = value;
+            this.renderConnection(conn);
+            saved++;
+        });
+        if (saved === 0) {
+            alert('Bitte mindestens eine Kabellänge eintragen.');
+            return;
+        }
+        const stillMissing = this.connections.filter(c => !c.length || parseFloat(c.length) <= 0);
+        if (stillMissing.length === 0) {
+            this.hideMissingLengthsModal();
+            alert('Alle Kabellängen wurden gespeichert.');
+        } else {
+            this.renderMissingLengthsList(stillMissing);
+        }
+    },
+
     renderCablesList() {
         const list = document.getElementById('cablesList');
         list.innerHTML = '';

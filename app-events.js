@@ -68,13 +68,16 @@ const EventsMixin = {
             this.autoConverter = e.target.checked;
         });
         document.getElementById('btnClearConnections').addEventListener('click', () => this.clearConnections());
+        document.getElementById('btnCheckLengths').addEventListener('click', () => this.checkConnectionLengths());
+        document.getElementById('btnCloseMissingLengths').addEventListener('click', () => this.hideMissingLengthsModal());
+        document.getElementById('btnSaveMissingLengths').addEventListener('click', () => this.saveMissingLengths());
         
         document.getElementById('btnExportPDF').addEventListener('click', () => this.showPdfExportModal());
         document.getElementById('btnCancelPdfExport').addEventListener('click', () => this.hidePdfExportModal());
         document.getElementById('btnStartPdfExport').addEventListener('click', () => this.startPdfExportFromModal());
         document.getElementById('btnPdfSheetsAll').addEventListener('click', () => this.setPdfExportSheetsChecked(true));
         document.getElementById('btnPdfSheetsNone').addEventListener('click', () => this.setPdfExportSheetsChecked(false));
-        document.getElementById('btnExportLists').addEventListener('click', () => this.exportListsPDF());
+        document.getElementById('btnExportLists').addEventListener('click', () => this.showPdfExportModal('lists'));
         document.getElementById('btnExportDevices').addEventListener('click', () => this.showExportModal());
         document.getElementById('btnCloseExport').addEventListener('click', () => this.hideExportModal());
         document.getElementById('btnExportAllDevices').addEventListener('click', () => {
@@ -210,6 +213,9 @@ const EventsMixin = {
                 this.hideCableModal();
                 this.hideProjectModal();
                 this.hideShortcutsModal();
+                this.hidePdfExportModal();
+                this.hideAutoConnectModal();
+                this.hideMissingLengthsModal();
             }
         });
         

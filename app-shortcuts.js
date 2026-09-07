@@ -20,7 +20,7 @@ const ShortcutsMixin = {
             { section: 'Datei', items: [
                 { label: 'Speichern', combos: [{ mod: true, keys: ['s'] }], buttonId: 'btnSave', run: () => this.saveDiagram() },
                 { label: 'Drucken: Plan als PDF (A1)', combos: [{ mod: true, keys: ['p'] }], buttonId: 'btnExportPDF', run: () => this.showPdfExportModal() },
-                { label: 'Drucken: Listen PDF', combos: [{ mod: true, shift: true, keys: ['p'] }], buttonId: 'btnExportLists', run: () => this.exportListsPDF() },
+                { label: 'Drucken: Listen PDF', combos: [{ mod: true, shift: true, keys: ['p'] }], buttonId: 'btnExportLists', run: () => this.showPdfExportModal('lists') },
                 { label: 'Projekteigenschaften öffnen', combos: [{ mod: true, keys: ['i'] }], buttonId: 'btnProjectSettings', run: () => this.showProjectModal() }
             ]},
             { section: 'Verbindungen', items: [

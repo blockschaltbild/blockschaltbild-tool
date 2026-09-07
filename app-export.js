@@ -209,12 +209,73 @@ const ExportMixin = {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
+        a.download = this.buildFileName('ict');
+        a.click();
+        URL.revokeObjectURL(url);
+        this.markSaved(`Datei ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`);
+    },
+
+    buildFileName(ext, suffix = '') {
         const now = new Date();
         const dateStr = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}`;
         const baseName = (this.projectNumber || '').trim() || this.projectName;
-        a.download = `${baseName.replace(/\s+/g, '_')}_${dateStr}.ict`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const safeName = baseName.replace(/[\/\\:*?"<>|]/g, '-').replace(/\s+/g, '_');
+        return `${safeName}_${dateStr}${suffix ? '_' + suffix : ''}.${ext}`;
+    },
+
+    projectSnapshot() {
+        const data = this.serializeDiagram();
+        delete data.templates;
+        delete data.groups;
+        delete data.cableTypes;
+        return JSON.stringify(data);
+    },
+
+    initSaveStatus() {
+        this.savedSnapshot = this.projectSnapshot();
+        this.lastSaveInfo = '';
+        this.isDirty = false;
+        this.updateSaveStatus();
+        if (this.dirtyCheckTimer) clearInterval(this.dirtyCheckTimer);
+        this.dirtyCheckTimer = setInterval(() => this.checkDirty(), 1500);
+        window.addEventListener('beforeunload', (e) => {
+            this.checkDirty();
+            if (this.isDirty) { e.preventDefault(); e.returnValue = ''; }
+        });
+    },
+
+    markSaved(info) {
+        this.savedSnapshot = this.projectSnapshot();
+        this.lastSaveInfo = info || '';
+        this.isDirty = false;
+        this.updateSaveStatus();
+    },
+
+    checkDirty() {
+        if (this.savedSnapshot === undefined) return;
+        try {
+            const dirty = this.projectSnapshot() !== this.savedSnapshot;
+            if (dirty !== this.isDirty) {
+                this.isDirty = dirty;
+                this.updateSaveStatus();
+            }
+        } catch (err) {
+            console.warn('Änderungsprüfung fehlgeschlagen:', err);
+        }
+    },
+
+    updateSaveStatus() {
+        const el = document.getElementById('saveStatus');
+        if (!el) return;
+        if (this.isDirty) {
+            el.textContent = '● Ungespeicherte Änderungen';
+            el.title = 'Es gibt Änderungen, die noch nicht gespeichert wurden (Datei → Speichern oder Autosave)';
+            el.classList.add('dirty');
+        } else {
+            el.textContent = this.lastSaveInfo ? `Gespeichert (${this.lastSaveInfo})` : 'Keine ungespeicherten Änderungen';
+            el.title = 'Alle Änderungen sind gespeichert';
+            el.classList.remove('dirty');
+        }
     },
 
     loadAutosaveSettings() {
@@ -267,6 +328,7 @@ const ExportMixin = {
             localStorage.setItem(this.autosaveDataKey, JSON.stringify(data));
             this.lastAutosaveAt = new Date();
             this.updateAutosaveStatus();
+            this.markSaved(`Autosave ${this.lastAutosaveAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`);
         } catch (err) {
             console.warn('Autosave fehlgeschlagen:', err);
         }
@@ -439,6 +501,7 @@ const ExportMixin = {
         this.updateLoading('Projekt geladen', 100, `${this.devices.length} Geräte, ${this.connections.length} Verbindungen`);
         await this.nextFrame();
         this.hideLoading();
+        this.markSaved(`geladen ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`);
         if (messages.length) alert(messages.join('\n\n'));
     },
 
@@ -608,8 +671,16 @@ const ExportMixin = {
         }
     },
 
-    showPdfExportModal() {
+    showPdfExportModal(mode = 'plan') {
         this.storeActiveSheet();
+        this.pdfExportMode = mode;
+        const isLists = mode === 'lists';
+        document.getElementById('pdfExportTitle').textContent = isLists ? 'Listen als PDF exportieren' : 'Plan als PDF exportieren';
+        document.getElementById('pdfExportHint').textContent = isLists
+            ? 'Wählen Sie die Arbeitsbereiche, für die je eine Geräte- und Kabelliste erstellt werden soll.'
+            : 'Wählen Sie die Arbeitsbereiche, die als Seiten in das PDF (A1 Querformat) aufgenommen werden sollen.';
+        document.getElementById('pdfExportMonoRow').style.display = isLists ? 'none' : '';
+        document.getElementById('pdfExportSummaryRow').style.display = isLists ? '' : 'none';
         const list = document.getElementById('pdfExportSheetList');
         list.innerHTML = '';
         this.sheets.forEach((sheet, idx) => {
@@ -643,7 +714,11 @@ const ExportMixin = {
             return;
         }
         this.hidePdfExportModal();
-        this.exportPDF(indices);
+        if (this.pdfExportMode === 'lists') {
+            this.exportListsPDF(indices, document.getElementById('chkListsSummary').checked);
+        } else {
+            this.exportPDF(indices);
+        }
     },
 
     async exportPDF(sheetIndices) {
@@ -690,7 +765,7 @@ const ExportMixin = {
             if (this.activeSheet !== originalSheet) this.activateSheet(originalSheet);
         }
         
-        pdf.save(`${this.projectName.replace(/\s+/g, '_')}_A1.pdf`);
+        pdf.save(this.buildFileName('pdf', 'A1'));
     },
 
     async drawPlanPage(pdf, opts) {
@@ -796,171 +871,232 @@ const ExportMixin = {
         pdf.addImage(png, 'PNG', imgX, imgY, imgW, imgH, undefined, 'FAST');
     },
 
-    exportListsPDF() {
-        const { jsPDF } = window.jspdf;
-        
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
-        
-        const pageWidth = 210;
-        const margin = 15;
-        const contentWidth = pageWidth - 2 * margin;
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.text(this.projectName, margin, 20);
-        
-        if (this.projectNumber) {
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(12);
-            pdf.text(`Projekt-Nr.: ${this.projectNumber}`, margin, 28);
-        }
-        
-        pdf.setFontSize(10);
-        pdf.text(`Erstellt: ${new Date().toLocaleDateString('de-DE')}`, pageWidth - margin, 20, { align: 'right' });
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.text('Geräteliste', margin, 45);
-        
-        const deviceCounts = {};
-        this.devices.forEach(device => {
+    collectDeviceList(devices) {
+        const counts = {};
+        devices.forEach(device => {
             const article = device.article || (device.placeholder ? 'Platzhalter' : '-');
             const key = `${device.name}|||${article}`;
-            if (!deviceCounts[key]) {
-                deviceCounts[key] = { name: device.placeholder ? `${device.name} (Platzhalter)` : device.name, article, count: 0 };
+            if (!counts[key]) {
+                counts[key] = { name: device.placeholder ? `${device.name} (Platzhalter)` : device.name, article, count: 0 };
             }
-            deviceCounts[key].count++;
+            counts[key].count++;
         });
+        return Object.values(counts).sort((a, b) => a.name.localeCompare(b.name));
+    },
+
+    collectCableList(connections) {
+        const counts = {};
+        connections.forEach(conn => {
+            if (!(conn.cableType || conn.length)) return;
+            const cableType = conn.cableType || 'Unbekannt';
+            const length = conn.length || '?';
+            const key = `${cableType}|||${length}`;
+            if (!counts[key]) counts[key] = { type: cableType, length, count: 0 };
+            counts[key].count++;
+        });
+        return Object.values(counts).sort((a, b) => {
+            if (a.type !== b.type) return a.type.localeCompare(b.type);
+            return parseFloat(a.length) - parseFloat(b.length);
+        });
+    },
+
+    exportListsPDF(sheetIndices, includeSummary = true) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         
-        const deviceList = Object.values(deviceCounts).sort((a, b) => a.name.localeCompare(b.name));
+        this.storeActiveSheet();
+        const indices = Array.isArray(sheetIndices) && sheetIndices.length ? sheetIndices : [this.activeSheet];
+        const sections = indices.map(idx => ({
+            title: this.sheets[idx].name,
+            devices: this.sheets[idx].devices || [],
+            connections: this.sheets[idx].connections || []
+        }));
+        const multi = sections.length > 1;
         
-        let y = 55;
-        const colWidths = [20, contentWidth - 60, 40];
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const margin = 15;
+        const contentWidth = pageWidth - 2 * margin;
         const rowHeight = 8;
+        const bottomLimit = pageHeight - 22;
+        const createdAt = new Date().toLocaleDateString('de-DE');
         
-        pdf.setFillColor(77, 73, 188);
-        pdf.rect(margin, y - 5, contentWidth, rowHeight, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.text('Anzahl', margin + 2, y);
-        pdf.text('Gerätename', margin + colWidths[0] + 2, y);
-        pdf.text('Artikelnummer', margin + colWidths[0] + colWidths[1] + 2, y);
+        let y = 0;
+        let currentSection = '';
         
-        y += rowHeight;
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'normal');
-        
-        deviceList.forEach((item, idx) => {
-            if (y > 270) {
-                pdf.addPage();
-                y = 20;
+        const pageHeader = (sectionTitle) => {
+            currentSection = sectionTitle;
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(18);
+            pdf.text(this.projectName, margin, 20);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10);
+            pdf.text(`Erstellt: ${createdAt}`, pageWidth - margin, 20, { align: 'right' });
+            let headY = 28;
+            if (this.projectNumber) {
+                pdf.setFontSize(12);
+                pdf.text(`Projekt-Nr.: ${this.projectNumber}`, margin, headY);
+                headY += 8;
             }
-            
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(12);
+            pdf.setTextColor(77, 73, 188);
+            pdf.text(sectionTitle, margin, headY);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setDrawColor(77, 73, 188);
+            pdf.setLineWidth(0.5);
+            pdf.line(margin, headY + 3, margin + contentWidth, headY + 3);
+            pdf.setLineWidth(0.2);
+            y = headY + 15;
+        };
+        const newPage = (sectionTitle) => {
+            pdf.addPage();
+            pageHeader(sectionTitle);
+        };
+        const ensureSpace = (needed) => {
+            if (y + needed > bottomLimit) newPage(currentSection);
+        };
+        
+        const tableHeader = (cols) => {
+            ensureSpace(rowHeight + 4);
+            pdf.setFillColor(77, 73, 188);
+            pdf.rect(margin, y - 5, contentWidth, rowHeight, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(10);
+            let x = margin;
+            cols.forEach(col => {
+                pdf.text(col.label, x + 2, y);
+                x += col.width;
+            });
+            y += rowHeight;
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont('helvetica', 'normal');
+        };
+        const tableRow = (cols, values, idx) => {
+            if (y + rowHeight > bottomLimit) {
+                newPage(currentSection);
+                tableHeader(cols);
+            }
             if (idx % 2 === 0) {
                 pdf.setFillColor(245, 245, 245);
                 pdf.rect(margin, y - 5, contentWidth, rowHeight, 'F');
             }
-            
-            pdf.text(String(item.count), margin + 2, y);
-            pdf.text(item.name.substring(0, 50), margin + colWidths[0] + 2, y);
-            pdf.text(item.article.substring(0, 25), margin + colWidths[0] + colWidths[1] + 2, y);
-            y += rowHeight;
-        });
-        
-        pdf.setDrawColor(200, 200, 200);
-        pdf.line(margin, y, margin + contentWidth, y);
-        y += 5;
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(`Gesamt: ${this.devices.length} Geräte`, margin + 2, y);
-        
-        pdf.addPage();
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.text(this.projectName, margin, 20);
-        
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.text('Kabelliste', margin, 45);
-        
-        const cableCounts = {};
-        this.connections.forEach(conn => {
-            if (conn.cableType || conn.length) {
-                const cableType = conn.cableType || 'Unbekannt';
-                const length = conn.length || '?';
-                const key = `${cableType}|||${length}`;
-                if (!cableCounts[key]) {
-                    cableCounts[key] = { type: cableType, length: length, count: 0 };
-                }
-                cableCounts[key].count++;
-            }
-        });
-        
-        const cableList = Object.values(cableCounts).sort((a, b) => {
-            if (a.type !== b.type) return a.type.localeCompare(b.type);
-            return parseFloat(a.length) - parseFloat(b.length);
-        });
-        
-        y = 55;
-        const cableColWidths = [20, contentWidth - 80, 40, 20];
-        
-        pdf.setFillColor(77, 73, 188);
-        pdf.rect(margin, y - 5, contentWidth, rowHeight, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.text('Anz.', margin + 2, y);
-        pdf.text('Kabeltyp', margin + cableColWidths[0] + 2, y);
-        pdf.text('Länge (m)', margin + cableColWidths[0] + cableColWidths[1] + 2, y);
-        
-        y += rowHeight;
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'normal');
-        
-        if (cableList.length === 0) {
-            pdf.setFont('helvetica', 'italic');
-            pdf.text('Keine Kabelinformationen vorhanden.', margin + 2, y);
-            pdf.text('Bitte Verbindungen auswählen und Kabeltyp/Länge eingeben.', margin + 2, y + 6);
-        } else {
-            let totalLength = 0;
-            cableList.forEach((item, idx) => {
-                if (y > 270) {
-                    pdf.addPage();
-                    y = 20;
-                }
-                
-                if (idx % 2 === 0) {
-                    pdf.setFillColor(245, 245, 245);
-                    pdf.rect(margin, y - 5, contentWidth, rowHeight, 'F');
-                }
-                
-                pdf.text(String(item.count), margin + 2, y);
-                pdf.text(item.type, margin + cableColWidths[0] + 2, y);
-                pdf.text(String(item.length), margin + cableColWidths[0] + cableColWidths[1] + 2, y);
-                
-                const len = parseFloat(item.length);
-                if (!isNaN(len)) {
-                    totalLength += len * item.count;
-                }
-                
-                y += rowHeight;
+            let x = margin;
+            cols.forEach((col, i) => {
+                pdf.text(String(values[i] ?? ''), x + 2, y);
+                x += col.width;
             });
-            
+            y += rowHeight;
+        };
+        const sectionTitle = (text) => {
+            ensureSpace(rowHeight * 3);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(14);
+            pdf.text(text, margin, y);
+            y += 10;
+        };
+        const totalsLine = (texts) => {
+            ensureSpace(rowHeight + 5);
             pdf.setDrawColor(200, 200, 200);
             pdf.line(margin, y, margin + contentWidth, y);
             y += 5;
             pdf.setFont('helvetica', 'bold');
-            pdf.text(`Gesamt: ${this.connections.filter(c => c.cableType || c.length).length} Kabel`, margin + 2, y);
-            if (totalLength > 0) {
-                pdf.text(`Gesamtlänge: ${totalLength.toFixed(1)} m`, margin + 80, y);
+            pdf.setFontSize(10);
+            texts.forEach((t, i) => pdf.text(t, margin + 2 + i * 80, y));
+            pdf.setFont('helvetica', 'normal');
+            y += 14;
+        };
+        
+        const deviceCols = [
+            { label: 'Anzahl', width: 20 },
+            { label: 'Gerätename', width: contentWidth - 60 },
+            { label: 'Artikelnummer', width: 40 }
+        ];
+        const cableCols = [
+            { label: 'Anz.', width: 20 },
+            { label: 'Kabeltyp', width: contentWidth - 60 },
+            { label: 'Länge (m)', width: 40 }
+        ];
+        
+        const drawLists = (devices, connections, opts = {}) => {
+            sectionTitle('Geräteliste');
+            const deviceList = this.collectDeviceList(devices);
+            tableHeader(deviceCols);
+            if (!deviceList.length) {
+                pdf.setFont('helvetica', 'italic');
+                pdf.text('Keine Geräte vorhanden.', margin + 2, y);
+                pdf.setFont('helvetica', 'normal');
+                y += rowHeight;
             }
+            deviceList.forEach((item, idx) => tableRow(deviceCols, [item.count, item.name.substring(0, 50), item.article.substring(0, 25)], idx));
+            totalsLine([`Gesamt: ${devices.length} Geräte`]);
+            
+            sectionTitle('Kabelliste');
+            const cableList = this.collectCableList(connections);
+            tableHeader(cableCols);
+            if (!cableList.length) {
+                pdf.setFont('helvetica', 'italic');
+                pdf.text('Keine Kabelinformationen vorhanden.', margin + 2, y);
+                pdf.text('Bitte Verbindungen auswählen und Kabeltyp/Länge eingeben.', margin + 2, y + 6);
+                pdf.setFont('helvetica', 'normal');
+                y += rowHeight * 2;
+                return;
+            }
+            let totalLength = 0;
+            cableList.forEach((item, idx) => {
+                tableRow(cableCols, [item.count, item.type, item.length], idx);
+                const len = parseFloat(item.length);
+                if (!isNaN(len)) totalLength += len * item.count;
+            });
+            const totals = [`Gesamt: ${connections.filter(c => c.cableType || c.length).length} Kabel`];
+            if (totalLength > 0) totals.push(`Gesamtlänge: ${totalLength.toFixed(1)} m`);
+            totalsLine(totals);
+        };
+        
+        const drawSheetOverview = (allDevices, allConnections) => {
+            sectionTitle('Übersicht Arbeitsbereiche');
+            const cols = [
+                { label: 'Arbeitsbereich', width: contentWidth - 80 },
+                { label: 'Geräte', width: 40 },
+                { label: 'Kabel', width: 40 }
+            ];
+            tableHeader(cols);
+            sections.forEach((sec, idx) => tableRow(cols, [
+                sec.title,
+                sec.devices.length,
+                sec.connections.filter(c => c.cableType || c.length).length
+            ], idx));
+            totalsLine([
+                `Gesamt: ${allDevices.length} Geräte`,
+                `${allConnections.filter(c => c.cableType || c.length).length} Kabel`
+            ]);
+        };
+        
+        sections.forEach((sec, i) => {
+            const title = multi ? `Arbeitsbereich: ${sec.title}` : sec.title;
+            if (i === 0) pageHeader(title); else newPage(title);
+            drawLists(sec.devices, sec.connections);
+        });
+        
+        if (includeSummary && multi) {
+            const allDevices = sections.flatMap(s => s.devices);
+            const allConnections = sections.flatMap(s => s.connections);
+            newPage('Zusammenfassung Gesamtprojekt');
+            drawSheetOverview(allDevices, allConnections);
+            drawLists(allDevices, allConnections);
         }
         
-        pdf.save(`${this.projectName.replace(/\s+/g, '_')}_Listen.pdf`);
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(9);
+            pdf.setTextColor(120, 120, 120);
+            pdf.text(`${this.projectName}  ·  Seite ${i} / ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+        }
+        
+        pdf.save(this.buildFileName('pdf', 'Listen'));
     }
 };

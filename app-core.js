@@ -82,6 +82,7 @@ class BlockDiagramEditor {
         this.updateGroupFilter();
         this.updateProjectDisplay();
         this.renderSheetTabs();
+        this.initSaveStatus();
     }
 
 
@@ -576,6 +577,7 @@ class BlockDiagramEditor {
         document.getElementById('projectNumber').value = '';
         this.updateProjectDisplay();
         this.deselectAll();
+        this.markSaved('');
     }
 
 

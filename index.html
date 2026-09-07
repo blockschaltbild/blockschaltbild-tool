@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockschaltbild Editor</title>
-    <link rel="icon" type="image/png" href="favicon.png?v=1.08">
+    <link rel="icon" type="image/png" href="favicon.png?v=1.11">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#4d49bc">
     <meta name="application-name" content="Blockschaltbild Editor">
@@ -14,13 +14,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.08">
+    <link rel="stylesheet" href="styles.css?v=1.11">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="version.js?v=1.08"></script>
-    <script src="toolbar-menu.js?v=1.08"></script>
+    <script src="version.js?v=1.11"></script>
+    <script src="toolbar-menu.js?v=1.11"></script>
 </head>
 <body>
     <div class="app-container">
@@ -91,6 +91,8 @@
                         <button id="btnClearConnections" title="Alle Verbindungen löschen">Verbindungen löschen</button>
                         <button id="btnCheckSignals" title="Bestehende Verbindungen auf Signalkompatibilität prüfen: fehlende Konverter einfügen, überflüssige entfernen">Signale prüfen</button>
                         <label title="Bei inkompatiblen Signalen (z.B. HDMI → SDI) automatisch einen Konverter einfügen"><input type="checkbox" id="chkAutoConverter" checked> Auto-Konverter</label>
+                        <div class="menu-separator"></div>
+                        <button id="btnCheckLengths" title="Prüft, ob bei allen Verbindungen eine Kabellänge hinterlegt ist">Kabellängen prüfen</button>
                     </div>
                 </div>
 
@@ -146,6 +148,7 @@
                     </div>
                 </div>
                 <div class="sidebar-footer" id="sidebarFooter" title="Version des Blockschaltbild-Tools">Version <span id="appVersion"></span></div>
+                <div class="sidebar-save-status" id="saveStatus"></div>
                 <div class="sidebar-resize" id="sidebarResize"></div>
             </aside>
 
@@ -303,6 +306,18 @@
         </div>
     </div>
 
+    <div id="missingLengthsModal" class="modal">
+        <div class="modal-content modal-large">
+            <h2>Kabellängen prüfen</h2>
+            <p class="hint" id="missingLengthsHint">Folgende Verbindungen haben noch keine Kabellänge. Länge eintragen und speichern.</p>
+            <div id="missingLengthsList" class="manage-list"></div>
+            <div class="modal-buttons">
+                <button type="button" id="btnCloseMissingLengths">Schließen</button>
+                <button type="button" id="btnSaveMissingLengths" class="primary">Speichern</button>
+            </div>
+        </div>
+    </div>
+
     <div id="exportModal" class="modal">
         <div class="modal-content">
             <h2>Geräte exportieren</h2>
@@ -342,14 +357,15 @@
 
     <div id="pdfExportModal" class="modal">
         <div class="modal-content">
-            <h2>Plan als PDF exportieren</h2>
-            <p class="hint">Wählen Sie die Arbeitsbereiche, die als Seiten in das PDF (A1 Querformat) aufgenommen werden sollen.</p>
+            <h2 id="pdfExportTitle">Plan als PDF exportieren</h2>
+            <p class="hint" id="pdfExportHint">Wählen Sie die Arbeitsbereiche, die als Seiten in das PDF (A1 Querformat) aufgenommen werden sollen.</p>
             <div class="add-group-row">
                 <button type="button" id="btnPdfSheetsAll">Alle auswählen</button>
                 <button type="button" id="btnPdfSheetsNone">Keine auswählen</button>
             </div>
             <div id="pdfExportSheetList" class="manage-list"></div>
-            <label class="pdf-export-option" title="Geräte nur mit schwarzen Umrissen exportieren, farbig bleiben nur die Verbindungslinien"><input type="checkbox" id="chkExportMono"> S/W-Geräte</label>
+            <label class="pdf-export-option" id="pdfExportMonoRow" title="Geräte nur mit schwarzen Umrissen exportieren, farbig bleiben nur die Verbindungslinien"><input type="checkbox" id="chkExportMono"> S/W-Geräte</label>
+            <label class="pdf-export-option" id="pdfExportSummaryRow" title="Zusätzliche Seiten mit Geräte- und Kabelliste über alle gewählten Arbeitsbereiche"><input type="checkbox" id="chkListsSummary" checked> Zusammenfassung Gesamtprojekt anhängen</label>
             <div class="modal-buttons">
                 <button type="button" id="btnCancelPdfExport">Abbrechen</button>
                 <button type="button" id="btnStartPdfExport" class="primary">PDF erstellen</button>
@@ -415,20 +431,20 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="logo.js?v=1.08"></script>
+    <script src="logo.js?v=1.11"></script>
     <script>
         document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
     </script>
-    <script src="app-core.js?v=1.08"></script>
-    <script src="app-library.js?v=1.08"></script>
-    <script src="app-canvas.js?v=1.08"></script>
-    <script src="app-connections.js?v=1.08"></script>
-    <script src="app-modals.js?v=1.08"></script>
-    <script src="app-export.js?v=1.08"></script>
-    <script src="app-history.js?v=1.08"></script>
-    <script src="app-shortcuts.js?v=1.08"></script>
-    <script src="app-events.js?v=1.08"></script>
-    <script src="app-bootstrap.js?v=1.08"></script>
-    <script src="app-pwa.js?v=1.08"></script>
+    <script src="app-core.js?v=1.11"></script>
+    <script src="app-library.js?v=1.11"></script>
+    <script src="app-canvas.js?v=1.11"></script>
+    <script src="app-connections.js?v=1.11"></script>
+    <script src="app-modals.js?v=1.11"></script>
+    <script src="app-export.js?v=1.11"></script>
+    <script src="app-history.js?v=1.11"></script>
+    <script src="app-shortcuts.js?v=1.11"></script>
+    <script src="app-events.js?v=1.11"></script>
+    <script src="app-bootstrap.js?v=1.11"></script>
+    <script src="app-pwa.js?v=1.11"></script>
 </body>
 </html>

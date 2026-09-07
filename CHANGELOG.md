@@ -3,6 +3,30 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.11 – 2026-09-07
+
+### Speicherstatus (neu)
+- Neue Statuszeile unten in der Seitenleiste zeigt an, ob ungespeicherte Änderungen vorliegen („● Ungespeicherte Änderungen", rot) oder wann zuletzt gespeichert wurde (Datei / Autosave / geladen mit Uhrzeit)
+- Erkennung von Änderungen über einen Vergleich des Projektstands (Bibliothek, Gruppen und Kabeltypen zählen nicht als Projektänderung)
+- Beim Schließen oder Neuladen der Seite mit ungespeicherten Änderungen warnt der Browser vor Datenverlust
+- Dateinamen beim Speichern/Export werden zentral erzeugt; unzulässige Zeichen werden ersetzt
+- Versionsnummer, Cache-Busting-Parameter und Service-Worker-Cache auf 1.11 gesetzt
+- Vorgängerversion 1.08 archiviert als `blockschaltbild-archiv/blockschaltbild_v1.08_2026-09-07.zip`
+
+## Version 1.10 – 2026-09-07
+
+### Kabellängen prüfen (neu)
+- Neuer Menüpunkt Verbindungen → „Kabellängen prüfen": prüft alle Verbindungen auf eine hinterlegte Kabellänge
+- Fehlt bei mindestens einer Verbindung die Länge, öffnet sich ein Fenster mit der Liste aller betroffenen Verbindungen; die Länge kann dort direkt je Verbindung eingetragen und gespeichert werden
+- Sind bereits überall Längen hinterlegt, erscheint eine Bestätigungsmeldung
+
+## Version 1.09 – 2026-09-07
+
+### Listen-PDF mit Blattauswahl
+- „Listen PDF" (Menü Datei und Strg+Shift+P) öffnet jetzt wie der Plan-Export einen Auswahldialog für die Arbeitsbereiche
+- Neue Option „Zusammenfassung Gesamtprojekt anhängen": zusätzliche Seiten mit Geräte- und Kabelliste über alle gewählten Arbeitsbereiche inkl. Gesamtsummen
+- Export-Dialog wird für Plan- und Listen-Export gemeinsam genutzt (Titel, Hinweistext und Optionen passen sich an)
+
 ## Version 1.08 – 2026-09-07
 
 ### Installation als App (PWA, neu)
