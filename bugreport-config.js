@@ -7,7 +7,7 @@
 // fallbackEmail: Empfänger für den Fallback per E-Mail.
 // maxTotalBytes: Obergrenze für alle Anhänge zusammen.
 const BUG_REPORT_CONFIG = {
-    endpoint: '',
+    endpoint: 'https://blockschaltbild-bug-report.blockschaltbild.workers.dev',
     fallbackEmail: 'bugs@blockschaltbild.example',
     maxTotalBytes: 5 * 1024 * 1024
 };

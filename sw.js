@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.13';
+const CACHE_VERSION = '1.13.1';
 const CACHE_NAME = `blockschaltbild-${CACHE_VERSION}`;
 
 const APP_FILES = [
