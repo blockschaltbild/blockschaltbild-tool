@@ -64,6 +64,7 @@ const EventsMixin = {
             document.getElementById(id).addEventListener('change', () => this.updateAutoConnectPreview());
         });
         document.getElementById('btnCheckSignals').addEventListener('click', () => this.validateConnections());
+        document.getElementById('btnCloseSignalCheck').addEventListener('click', () => this.hideSignalCheckModal());
         document.getElementById('chkAutoConverter').addEventListener('change', (e) => {
             this.autoConverter = e.target.checked;
         });

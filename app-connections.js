@@ -105,19 +105,35 @@ const ConnectionsMixin = {
 
     signalType(port) {
         if (!port) return '';
-        const raw = (port.cable || '').trim();
-        if (raw) return this.normalizeSignal(raw);
+        const fromCable = this.normalizeSignal(port.cable || '');
+        if (fromCable) return fromCable;
         return this.normalizeSignal(port.name || '');
     },
 
     normalizeSignal(text) {
-        const t = String(text).toUpperCase();
-        if (/\bHDMI\b/.test(t) || t.startsWith('HDMI')) return 'HDMI';
-        if (/\bSDI\b/.test(t) || /\bSDI/.test(t) || /(3G|6G|12G)[- ]?SDI/.test(t)) return 'SDI';
-        if (/DISPLAYPORT/.test(t) || /\bDP\b/.test(t) || /\bMINI[- ]?DP\b/.test(t)) return 'DP';
-        if (/\bLC\s*\/\s*LC\b/.test(t) || /\bLC\b/.test(t) || /GLASFASER/.test(t) || /\bLWL\b/.test(t) || /\bFIBER\b/.test(t) || /\bFIBRE\b/.test(t)) return 'LC';
-        if (/\bCAT\s*[5-8]/.test(t) || /\bRJ\s*45\b/.test(t) || /\bETHERNET\b/.test(t) || /\bLAN\b/.test(t)) return 'CAT';
+        const t = String(text || '').toUpperCase().replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!t) return '';
+        if (/HDMI/.test(t)) return 'HDMI';
+        if (/SDI|\bBNC\b/.test(t)) return 'SDI';
+        if (/DISPLAY\s?PORT|\bM?DP\b|\bMINI ?DP\b/.test(t)) return 'DP';
+        if (/\bLC\b|\bSC\b|GLASFASER|\bLWL\b|FIBER|FIBRE|OPTICAL ?FIBER|\bSFP\b/.test(t)) return 'LC';
+        if (/\bCAT\s?[5-8]|\bRJ ?45\b|ETHERNET|\bLAN\b|\bETH\b|NETZWERK|NETWORK|\bDANTE\b|\bAVB\b|\bPOE\b|HDBASE ?T/.test(t)) return 'CAT';
+        if (/\bDMX\b|\bRDM\b|ART ?NET|\bSACN\b/.test(t)) return 'DMX';
+        if (/\bAES\b|\bEBU\b|\bMADI\b/.test(t)) return 'AES';
+        if (/\bXLR\b|\bMIC\b|\bMIKRO/.test(t)) return 'XLR';
+        if (/SPEAKON|\bNL ?[248]\b|\bSPEAKER|\bSPK\b|\bLS\b/.test(t)) return 'SPEAKON';
+        if (/\bTRS\b|\bTS\b|KLINKE|\bJACK\b|\b6[.,]3 ?MM\b|\b3[.,]5 ?MM\b/.test(t)) return 'JACK';
+        if (/\bRCA\b|CINCH|\bCHINCH\b/.test(t)) return 'RCA';
+        if (/\bUSB\b/.test(t)) return 'USB';
+        if (/POWERCON|\bPOWER\b|\bNETZ\b|\bSTROM\b|SCHUKO|\b230 ?V\b|\bMAINS\b|\bPSU\b/.test(t)) return 'POWER';
         return '';
+    },
+
+    signalsCompatible(a, b) {
+        if (!a || !b) return false;
+        if (a === b) return true;
+        const audio = ['XLR', 'JACK', 'RCA', 'AES'];
+        return audio.includes(a) && audio.includes(b);
     },
 
     converterRuleFor(fromType, toType) {
@@ -219,42 +235,93 @@ const ConnectionsMixin = {
     validateConnections(silent = false) {
         let inserted = 0;
         let blocked = 0;
+        let skipped = 0;
+        let checked = 0;
+        const issues = [];
         
         [...this.connections].forEach(conn => {
             const from = this.findPort(conn.fromDevice, conn.fromPort, 'output');
             const to = this.findPort(conn.toDevice, conn.toPort, 'input');
             if (!from || !to) return;
-            
-            const rule = this.converterRuleFor(this.signalType(from.port), this.signalType(to.port));
-            if (!rule) return;
-            
-            if (!this.findConverterTemplate(rule)) {
-                blocked++;
+            if (from.device.placeholder || to.device.placeholder) {
+                skipped++;
                 return;
             }
-            const label = this.connectionLabel(conn);
-            this.removeConnection(conn);
-            if (this.insertConverter(from.device, from.port, to.device, to.port, rule, label)) inserted++;
-            else blocked++;
+            checked++;
+            
+            const fromType = this.signalType(from.port);
+            const toType = this.signalType(to.port);
+            const fromRaw = (from.port.cable || '').trim();
+            const toRaw = (to.port.cable || '').trim();
+            
+            if (fromType && toType) {
+                if (this.signalsCompatible(fromType, toType)) return;
+                const rule = this.converterRuleFor(fromType, toType);
+                if (!rule) {
+                    blocked++;
+                    issues.push({ kind: 'error', conn, title: `Inkompatibel: ${fromType} → ${toType}`,
+                        detail: 'Für diese Signalkombination gibt es keine Konverter-Regel.' });
+                    return;
+                }
+                const template = this.findConverterTemplate(rule);
+                if (!template) {
+                    blocked++;
+                    issues.push({ kind: 'error', conn, title: `Konverter fehlt: ${fromType} → ${toType}`,
+                        detail: `Kein passendes Gerät ("${rule.template}") in der Bibliothek vorhanden.` });
+                    return;
+                }
+                if (!this.autoConverter) {
+                    blocked++;
+                    issues.push({ kind: 'error', conn, title: `Konverter erforderlich: ${fromType} → ${toType}`,
+                        detail: `"${template.name}" nötig – Auto-Konverter ist deaktiviert.` });
+                    return;
+                }
+                const label = this.connectionLabel(conn);
+                const desc = this.describeConnection(conn);
+                this.removeConnection(conn);
+                if (this.insertConverter(from.device, from.port, to.device, to.port, rule, label, true)) {
+                    inserted++;
+                    const newConn = this.connections.find(c => c.fromDevice === from.device.id && c.fromPort === from.port.id);
+                    issues.push({ kind: 'info', conn: newConn, desc, title: `Konverter eingefügt: ${fromType} → ${toType}`,
+                        detail: `"${template.name}" wurde zwischengeschaltet.` });
+                } else {
+                    blocked++;
+                    issues.push({ kind: 'error', conn: null, desc, title: `Konverter fehlt: ${fromType} → ${toType}`,
+                        detail: `"${template.name}" hat keine freien passenden Anschlüsse. Verbindung wurde entfernt.` });
+                }
+                return;
+            }
+            
+            if (fromRaw && toRaw && fromRaw.toLowerCase() !== toRaw.toLowerCase()) {
+                issues.push({ kind: 'warning', conn, title: `Kabeltyp unterschiedlich: ${fromRaw} → ${toRaw}`,
+                    detail: 'Bitte prüfen, ob Ausgang und Eingang zusammenpassen.' });
+            }
         });
         
         const removed = this.cleanupConverters();
         this.updateConnections();
         
-        if (!silent) {
-            const parts = [];
-            if (inserted) parts.push(`${inserted} Konverter eingefügt`);
-            if (removed) parts.push(`${removed} überflüssige(r) Konverter entfernt`);
-            if (blocked) parts.push(`${blocked} Verbindung(en) ohne passenden Konverter`);
-            alert(parts.length ? parts.join('\n') : 'Alle Verbindungen sind signaltechnisch korrekt.');
-        }
-        return { inserted, removed, blocked };
+        const result = { inserted, removed, blocked, skipped, checked, issues };
+        if (!silent) this.showSignalCheckModal(result);
+        return result;
     },
 
-    insertConverter(fromDevice, fromPort, toDevice, toPort, rule, label) {
+    describeConnection(conn) {
+        const fromDevice = this.devices.find(d => d.id === conn?.fromDevice);
+        const toDevice = this.devices.find(d => d.id === conn?.toDevice);
+        return {
+            fromDevice: fromDevice?.name || '?',
+            fromPort: fromDevice?.outputs.find(p => p.id === conn.fromPort)?.name || '?',
+            toDevice: toDevice?.name || '?',
+            toPort: toDevice?.inputs.find(p => p.id === conn.toPort)?.name || '?',
+            name: conn?.name || ''
+        };
+    },
+
+    insertConverter(fromDevice, fromPort, toDevice, toPort, rule, label, quiet = false) {
         const template = this.findConverterTemplate(rule);
         if (!template) {
-            alert(`Direkte Verbindung ${rule.from} → ${rule.to} ist nicht möglich.\n` +
+            if (!quiet) alert(`Direkte Verbindung ${rule.from} → ${rule.to} ist nicht möglich.\n` +
                   `Dafür wird ein Konverter benötigt, aber kein passendes Gerät ("${rule.template}") ist in der Bibliothek vorhanden.`);
             return false;
         }
@@ -269,7 +336,7 @@ const ConnectionsMixin = {
         
         if (!convIn || !convOut) {
             this.removeDevice(converter);
-            alert(`Der Konverter "${template.name}" hat keine freien ${rule.from}-Eingänge bzw. ${rule.to}-Ausgänge.`);
+            if (!quiet) alert(`Der Konverter "${template.name}" hat keine freien ${rule.from}-Eingänge bzw. ${rule.to}-Ausgänge.`);
             return false;
         }
         
@@ -998,6 +1065,7 @@ const ConnectionsMixin = {
             const k = this.portNameKey(o);
             return k && !this.signalType(o) && !this.signalType(i) && k === this.portNameKey(i);
         }, 'gleicher Anschlussname');
+        pass((o, i) => this.signalsCompatible(this.signalType(o), this.signalType(i)), 'kompatible Signalart');
         
         if (this.autoConverter) {
             outputs.forEach(out => {
@@ -1017,6 +1085,7 @@ const ConnectionsMixin = {
         
         if (allowGeneric) {
             pass((o, i) => !this.signalType(o) && !this.signalType(i), 'freie Zuordnung');
+            pass((o, i) => (!this.signalType(o) || !this.signalType(i)) && this.signalType(i) !== 'POWER' && this.signalType(o) !== 'POWER', 'freie Zuordnung (Signalart unbekannt)');
         }
         
         return plan;

@@ -573,6 +573,90 @@ const ModalsMixin = {
         });
     },
 
+    showSignalCheckModal(result) {
+        document.getElementById('signalCheckModal').classList.add('active');
+        this.renderSignalCheckList(result);
+    },
+
+    hideSignalCheckModal() {
+        document.getElementById('signalCheckModal').classList.remove('active');
+    },
+
+    renderSignalCheckList(result) {
+        const list = document.getElementById('signalCheckList');
+        const hint = document.getElementById('signalCheckHint');
+        list.innerHTML = '';
+
+        const errors = result.issues.filter(i => i.kind === 'error').length;
+        const warnings = result.issues.filter(i => i.kind === 'warning').length;
+        const parts = [`${result.checked} Verbindung(en) geprüft`];
+        if (result.skipped) parts.push(`${result.skipped} mit Platzhalter übersprungen`);
+        if (errors) parts.push(`${errors} Fehler`);
+        if (warnings) parts.push(`${warnings} Warnung(en)`);
+        if (result.inserted) parts.push(`${result.inserted} Konverter eingefügt`);
+        if (result.removed) parts.push(`${result.removed} überflüssige(r) Konverter entfernt`);
+        hint.textContent = parts.join(' · ') + '.';
+
+        if (result.issues.length === 0) {
+            const ok = document.createElement('div');
+            ok.className = 'manage-item signal-check-item signal-check-ok';
+            ok.textContent = 'Alle geprüften Verbindungen sind signaltechnisch korrekt.';
+            list.appendChild(ok);
+            return;
+        }
+
+        const order = { error: 0, warning: 1, info: 2 };
+        const labels = { error: 'Fehler', warning: 'Warnung', info: 'Info' };
+        [...result.issues].sort((a, b) => order[a.kind] - order[b.kind]).forEach(issue => {
+            const d = issue.desc || this.describeConnection(issue.conn);
+            const div = document.createElement('div');
+            div.className = `manage-item signal-check-item signal-check-${issue.kind}`;
+            div.innerHTML = `
+                <div class="missing-length-route">
+                    <span class="signal-check-badge">${labels[issue.kind]}</span>
+                    <div class="missing-length-endpoint">
+                        <span class="missing-length-device">${d.fromDevice}</span>
+                        <span class="missing-length-port">${d.fromPort}</span>
+                    </div>
+                    <span class="missing-length-arrow">⟶</span>
+                    <div class="missing-length-endpoint">
+                        <span class="missing-length-device">${d.toDevice}</span>
+                        <span class="missing-length-port">${d.toPort}</span>
+                    </div>
+                    <span class="signal-check-title">${issue.title}</span>
+                    <span class="signal-check-detail">${issue.detail}${d.name ? ` (${d.name})` : ''}</span>
+                </div>
+                <div class="missing-length-controls">
+                    <button type="button" class="btn-jump-connection"${issue.conn ? '' : ' disabled'}>Anzeigen</button>
+                </div>
+            `;
+            if (issue.conn) {
+                div.querySelector('.btn-jump-connection').addEventListener('click', () => {
+                    this.hideSignalCheckModal();
+                    this.jumpToConnection(issue.conn);
+                });
+            }
+            list.appendChild(div);
+        });
+    },
+
+    jumpToConnection(conn) {
+        const live = this.connections.find(c => c.id === conn.id);
+        if (!live) return;
+        this.selectElement(live, 'connection');
+        const path = document.getElementById(live.id)?.querySelector('.connection');
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (!path || !wrapper) return;
+        const box = path.getBBox();
+        const cx = (box.x + box.width / 2) * this.zoom;
+        const cy = (box.y + box.height / 2) * this.zoom;
+        wrapper.scrollTo({
+            left: Math.max(0, cx - wrapper.clientWidth / 2),
+            top: Math.max(0, cy - wrapper.clientHeight / 2),
+            behavior: 'smooth'
+        });
+    },
+
     saveMissingLengths() {
         const inputs = document.querySelectorAll('#missingLengthsList .missing-length-input');
         let saved = 0;

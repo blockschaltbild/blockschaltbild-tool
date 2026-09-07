@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockschaltbild Editor</title>
-    <link rel="icon" type="image/png" href="favicon.png?v=1.11">
+    <link rel="icon" type="image/png" href="favicon.png?v=1.13">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#4d49bc">
     <meta name="application-name" content="Blockschaltbild Editor">
@@ -14,13 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.11">
+    <link rel="stylesheet" href="styles.css?v=1.13">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="version.js?v=1.11"></script>
-    <script src="toolbar-menu.js?v=1.11"></script>
+    <script src="version.js?v=1.13"></script>
+    <script src="bugreport-config.js?v=1.13"></script>
+    <script src="toolbar-menu.js?v=1.13"></script>
 </head>
 <body>
     <div class="app-container">
@@ -147,7 +148,10 @@
                         <p class="hint">Wählen Sie ein Element aus</p>
                     </div>
                 </div>
-                <div class="sidebar-footer" id="sidebarFooter" title="Version des Blockschaltbild-Tools">Version <span id="appVersion"></span></div>
+                <div class="sidebar-footer-bar">
+                    <div class="sidebar-footer" id="sidebarFooter" title="Version des Blockschaltbild-Tools">Version <span id="appVersion"></span></div>
+                    <button type="button" class="bug-report-btn" id="btnBugReport" title="Fehler melden oder Verbesserung vorschlagen">🐞 Fehler melden</button>
+                </div>
                 <div class="sidebar-save-status" id="saveStatus"></div>
                 <div class="sidebar-resize" id="sidebarResize"></div>
             </aside>
@@ -318,6 +322,17 @@
         </div>
     </div>
 
+    <div id="signalCheckModal" class="modal">
+        <div class="modal-content modal-large">
+            <h2>Signale prüfen</h2>
+            <p class="hint" id="signalCheckHint"></p>
+            <div id="signalCheckList" class="manage-list"></div>
+            <div class="modal-buttons">
+                <button type="button" id="btnCloseSignalCheck">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <div id="exportModal" class="modal">
         <div class="modal-content">
             <h2>Geräte exportieren</h2>
@@ -419,6 +434,46 @@
         </div>
     </div>
 
+    <div id="bugReportModal" class="modal">
+        <div class="modal-content modal-large">
+            <h2>Fehler melden / Verbesserung vorschlagen</h2>
+            <form id="bugReportForm" novalidate>
+                <div class="form-row">
+                    <label>Art der Meldung:
+                        <select id="bugReportType">
+                            <option value="bug">Fehler</option>
+                            <option value="improvement">Verbesserungsvorschlag</option>
+                            <option value="question">Frage / Sonstiges</option>
+                        </select>
+                    </label>
+                    <label>Betreff (kurz):
+                        <input type="text" id="bugReportTitle" maxlength="120" placeholder="z. B. PDF-Export schneidet Kabelliste ab">
+                    </label>
+                </div>
+                <label>Beschreibung:
+                    <textarea id="bugReportText" rows="7" placeholder="Was ist passiert bzw. was wünschen Sie sich? Bei Fehlern bitte: Was haben Sie getan, was ist passiert, was hätten Sie erwartet?"></textarea>
+                </label>
+                <label>Ihre E-Mail (optional, für Rückfragen):
+                    <input type="email" id="bugReportEmail" placeholder="name@firma.de">
+                </label>
+                <label>Anhänge (Screenshots, Dateien – optional, max. 5 MB gesamt):
+                    <input type="file" id="bugReportFiles" multiple accept="image/*,.pdf,.ict,.json,.txt,.xlsx,.csv">
+                </label>
+                <div id="bugReportFileList" class="bug-report-file-list"></div>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="bugReportIncludeProject" checked>
+                    <span>Aktuellen Projektstand (.ict) als Anhang mitsenden – hilft bei der Fehlersuche</span>
+                </label>
+                <p class="hint bug-report-meta" id="bugReportMeta"></p>
+                <p class="bug-report-status" id="bugReportStatus" aria-live="polite"></p>
+                <div class="modal-buttons">
+                    <button type="submit" id="btnSendBugReport">Meldung senden</button>
+                    <button type="button" id="btnCancelBugReport">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="loadingOverlay" class="loading-overlay" aria-live="polite" aria-busy="true">
         <div class="loading-box">
             <div class="spinner"></div>
@@ -431,20 +486,21 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="logo.js?v=1.11"></script>
+    <script src="logo.js?v=1.13"></script>
     <script>
         document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
     </script>
-    <script src="app-core.js?v=1.11"></script>
-    <script src="app-library.js?v=1.11"></script>
-    <script src="app-canvas.js?v=1.11"></script>
-    <script src="app-connections.js?v=1.11"></script>
-    <script src="app-modals.js?v=1.11"></script>
-    <script src="app-export.js?v=1.11"></script>
-    <script src="app-history.js?v=1.11"></script>
-    <script src="app-shortcuts.js?v=1.11"></script>
-    <script src="app-events.js?v=1.11"></script>
-    <script src="app-bootstrap.js?v=1.11"></script>
-    <script src="app-pwa.js?v=1.11"></script>
+    <script src="app-core.js?v=1.13"></script>
+    <script src="app-library.js?v=1.13"></script>
+    <script src="app-canvas.js?v=1.13"></script>
+    <script src="app-connections.js?v=1.13"></script>
+    <script src="app-modals.js?v=1.13"></script>
+    <script src="app-export.js?v=1.13"></script>
+    <script src="app-history.js?v=1.13"></script>
+    <script src="app-shortcuts.js?v=1.13"></script>
+    <script src="app-events.js?v=1.13"></script>
+    <script src="app-bugreport.js?v=1.13"></script>
+    <script src="app-bootstrap.js?v=1.13"></script>
+    <script src="app-pwa.js?v=1.13"></script>
 </body>
 </html>

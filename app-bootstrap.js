@@ -7,7 +7,8 @@ Object.assign(
     ExportMixin,
     HistoryMixin,
     ShortcutsMixin,
-    EventsMixin
+    EventsMixin,
+    BugReportMixin
 );
 
 document.addEventListener('DOMContentLoaded', () => {

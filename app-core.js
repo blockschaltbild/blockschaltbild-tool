@@ -83,6 +83,7 @@ class BlockDiagramEditor {
         this.updateProjectDisplay();
         this.renderSheetTabs();
         this.initSaveStatus();
+        this.initBugReport();
     }
 
 

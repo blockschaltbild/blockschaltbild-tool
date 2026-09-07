@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.11';
+const CACHE_VERSION = '1.13';
 const CACHE_NAME = `blockschaltbild-${CACHE_VERSION}`;
 
 const APP_FILES = [
@@ -6,6 +6,7 @@ const APP_FILES = [
     './index.html',
     './styles.css',
     './version.js',
+    './bugreport-config.js',
     './toolbar-menu.js',
     './logo.js',
     './app-core.js',
@@ -17,6 +18,7 @@ const APP_FILES = [
     './app-history.js',
     './app-shortcuts.js',
     './app-events.js',
+    './app-bugreport.js',
     './app-bootstrap.js',
     './favicon.png',
     './manifest.webmanifest',

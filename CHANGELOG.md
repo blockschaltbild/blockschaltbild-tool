@@ -3,6 +3,27 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.13 – 2026-09-07
+
+### Fehler melden (neu)
+- Neuer Button „🐞 Fehler melden" rechts unten in der Seitenleiste (neben Version und Speicherstatus)
+- Formular für Fehler, Verbesserungsvorschläge und Fragen mit Betreff, Beschreibung, optionaler E-Mail und Anhängen (Screenshots, Dateien, max. 5 MB); der aktuelle Projektstand (.ict) kann mitgesendet werden
+- Version, Browser, Bildschirmgröße und Projektumfang werden automatisch mitgeschickt
+- Meldungen gehen über einen Vermittler (Cloudflare Worker) in das private GitHub-Repository `blockschaltbild-bug-reports` (Ordner `reports/<id>/` mit Bericht und Anhängen) und öffnen dort ein Issue; eine GitHub Action erzeugt daraus eine Analyse mit Prompt-Vorschlag zur Behebung
+- Ohne konfigurierten Vermittler (`bugreport-config.js`) wird die Meldung als Datei gespeichert und ein E-Mail-Entwurf geöffnet
+- Versionsnummer, Cache-Busting-Parameter und Service-Worker-Cache auf 1.13 gesetzt
+
+## Version 1.12 – 2026-09-07
+
+### Signale prüfen (überarbeitet)
+- „Signale prüfen" zeigt das Ergebnis jetzt als Liste in einem Fenster statt als kurze Meldung
+- Jede Verbindung wird geprüft, ob der Signaltyp des Ausgangs zum Signaltyp des Eingangs passt (HDMI, SDI, DP, LC, CAT); Verbindungen mit gleichem Typ gelten als korrekt
+- Einträge werden als Fehler (inkompatibel / kein Konverter / Konverter erforderlich bei deaktiviertem Auto-Konverter), Warnung (unterschiedliche Kabeltypen ohne bekannten Signaltyp, z.B. XLR → Klinke) oder Info (Konverter automatisch eingefügt) angezeigt
+- Über „Anzeigen" springt man direkt zur betroffenen Verbindung; sie wird ausgewählt und in den sichtbaren Bereich gescrollt
+- Verbindungen an Platzhaltergeräten werden nicht geprüft (Anzahl wird in der Zusammenfassung genannt)
+- Konverter werden nur noch automatisch eingefügt, wenn „Auto-Konverter" aktiviert ist
+- Versionsnummer, Cache-Busting-Parameter und Service-Worker-Cache auf 1.12 gesetzt
+
 ## Version 1.11 – 2026-09-07
 
 ### Speicherstatus (neu)
