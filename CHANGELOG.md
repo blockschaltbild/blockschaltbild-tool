@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.13.2 – 2026-09-07
+
+- „Fehler melden"-Button durch ein Piktogramm (Käfer mit Warndreieck, schwarze Linien) ersetzt
+
 ## Version 1.13.1 – 2026-09-07
 
 - Vermittler für „Fehler melden" eingerichtet: Meldungen werden jetzt direkt in das Bug-Report-Repository übertragen (kein lokaler Download mehr)

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockschaltbild Editor</title>
-    <link rel="icon" type="image/png" href="favicon.png?v=1.13.1">
+    <link rel="icon" type="image/png" href="favicon.png?v=1.13.2">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#4d49bc">
     <meta name="application-name" content="Blockschaltbild Editor">
@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.13.1">
+    <link rel="stylesheet" href="styles.css?v=1.13.2">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="version.js?v=1.13.1"></script>
-    <script src="bugreport-config.js?v=1.13.1"></script>
-    <script src="toolbar-menu.js?v=1.13.1"></script>
+    <script src="version.js?v=1.13.2"></script>
+    <script src="bugreport-config.js?v=1.13.2"></script>
+    <script src="toolbar-menu.js?v=1.13.2"></script>
 </head>
 <body>
     <div class="app-container">
@@ -150,7 +150,18 @@
                 </div>
                 <div class="sidebar-footer-bar">
                     <div class="sidebar-footer" id="sidebarFooter" title="Version des Blockschaltbild-Tools">Version <span id="appVersion"></span></div>
-                    <button type="button" class="bug-report-btn" id="btnBugReport" title="Fehler melden oder Verbesserung vorschlagen">🐞 Fehler melden</button>
+                    <button type="button" class="bug-report-btn" id="btnBugReport" title="Fehler melden oder Verbesserung vorschlagen" aria-label="Fehler melden">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9 3.5l1.5 2M15 3.5l-1.5 2"/>
+                            <path d="M9.2 7.2a2.8 2.8 0 0 1 5.6 0"/>
+                            <path d="M8.3 12.4c0-2.6 1.7-4.4 3.7-4.4s3.7 1.8 3.7 4.4v3.2c0 2.3-1.7 4.2-3.7 4.2s-3.7-1.9-3.7-4.2z"/>
+                            <path d="M12 8v11.8"/>
+                            <path d="M10 12v4M14 12v2"/>
+                            <path d="M8.3 10.5L5.5 9 4 6.5M8.3 13.5H4.5M8.3 16.5L5.5 18 4.5 20.5M15.7 10.5L18.5 9 20 6.5M15.7 13.2H19"/>
+                            <path d="M18.3 14.2l3.2 5.6H15.1z" fill="#fff"/>
+                            <path d="M18.3 16v1.6M18.3 18.7v.1"/>
+                        </svg>
+                    </button>
                 </div>
                 <div class="sidebar-save-status" id="saveStatus"></div>
                 <div class="sidebar-resize" id="sidebarResize"></div>
@@ -486,21 +497,21 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="logo.js?v=1.13.1"></script>
+    <script src="logo.js?v=1.13.2"></script>
     <script>
         document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
     </script>
-    <script src="app-core.js?v=1.13.1"></script>
-    <script src="app-library.js?v=1.13.1"></script>
-    <script src="app-canvas.js?v=1.13.1"></script>
-    <script src="app-connections.js?v=1.13.1"></script>
-    <script src="app-modals.js?v=1.13.1"></script>
-    <script src="app-export.js?v=1.13.1"></script>
-    <script src="app-history.js?v=1.13.1"></script>
-    <script src="app-shortcuts.js?v=1.13.1"></script>
-    <script src="app-events.js?v=1.13.1"></script>
-    <script src="app-bugreport.js?v=1.13.1"></script>
-    <script src="app-bootstrap.js?v=1.13.1"></script>
-    <script src="app-pwa.js?v=1.13.1"></script>
+    <script src="app-core.js?v=1.13.2"></script>
+    <script src="app-library.js?v=1.13.2"></script>
+    <script src="app-canvas.js?v=1.13.2"></script>
+    <script src="app-connections.js?v=1.13.2"></script>
+    <script src="app-modals.js?v=1.13.2"></script>
+    <script src="app-export.js?v=1.13.2"></script>
+    <script src="app-history.js?v=1.13.2"></script>
+    <script src="app-shortcuts.js?v=1.13.2"></script>
+    <script src="app-events.js?v=1.13.2"></script>
+    <script src="app-bugreport.js?v=1.13.2"></script>
+    <script src="app-bootstrap.js?v=1.13.2"></script>
+    <script src="app-pwa.js?v=1.13.2"></script>
 </body>
 </html>

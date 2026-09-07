@@ -587,23 +587,27 @@ input[type="checkbox"] {
 
 .bug-report-btn {
     flex: 0 0 auto;
-    margin: 6px 12px 2px 0;
-    padding: 4px 10px;
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--ict-muted);
-    background: var(--ict-gray);
-    border: 1px solid var(--ict-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px 12px 2px 0;
+    padding: 3px;
+    color: #000;
+    background: transparent;
+    border: none;
     border-radius: 6px;
     cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    line-height: 0;
+    transition: background 0.2s, color 0.2s;
+}
+
+.bug-report-btn svg {
+    display: block;
 }
 
 .bug-report-btn:hover {
     color: var(--ict-blue);
-    border-color: var(--ict-blue);
-    background: #fff;
+    background: var(--ict-gray);
 }
 
 .sidebar.collapsed .sidebar-footer-bar {
