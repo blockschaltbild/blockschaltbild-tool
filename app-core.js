@@ -69,10 +69,16 @@ class BlockDiagramEditor {
         ];
         
         this.libraryKey = 'blockschaltbild.library.v1';
+        this.autosaveSettingsKey = 'blockschaltbild.autosave.settings.v1';
+        this.autosaveDataKey = 'blockschaltbild.autosave.data.v1';
+        this.autosaveTimer = null;
+        this.lastAutosaveAt = null;
         
         this.initSVG();
+        this.initHistory();
         this.initEventListeners();
         this.loadLibrary();
+        this.loadAutosaveSettings();
         this.updateGroupFilter();
         this.updateProjectDisplay();
         this.renderSheetTabs();
@@ -255,7 +261,10 @@ class BlockDiagramEditor {
             if (done) return;
             done = true;
             const name = input.value.trim();
-            if (name) this.sheets[idx].name = name;
+            if (name && name !== this.sheets[idx].name) {
+                this.recordHistory();
+                this.sheets[idx].name = name;
+            }
             this.renderSheetTabs();
         };
         input.addEventListener('keydown', (e) => {
@@ -371,6 +380,7 @@ class BlockDiagramEditor {
     addSheet() {
         this.deselectAll();
         this.storeActiveSheet();
+        this.recordHistory();
         const id = this.nextSheetId++;
         this.sheets.push({ id: id, name: `Blatt ${this.sheets.length + 1}`, devices: [], connections: [], textboxes: [] });
         this.activateSheet(this.sheets.length - 1);
@@ -385,6 +395,7 @@ class BlockDiagramEditor {
         if (!confirm(`Arbeitsbereich "${this.sheets[idx].name}" löschen?`)) return;
         this.deselectAll();
         this.storeActiveSheet();
+        this.recordHistory();
         this.sheets.splice(idx, 1);
         let target = this.activeSheet;
         if (idx < target) target--;
@@ -498,6 +509,7 @@ class BlockDiagramEditor {
 
     deleteSelected() {
         if (!this.selectedElement) return;
+        this.recordHistory();
         
         if (this.selectedElement.type === 'device') {
             const device = this.selectedElement.element;
@@ -541,6 +553,7 @@ class BlockDiagramEditor {
     newDiagram() {
         const hasContent = this.sheets.some(s => (s === this.sheets[this.activeSheet] ? this.devices : s.devices).length > 0);
         if (hasContent && !confirm('Aktuelles Diagramm verwerfen?')) return;
+        this.recordHistory();
         
         this.devices = [];
         this.connections = [];

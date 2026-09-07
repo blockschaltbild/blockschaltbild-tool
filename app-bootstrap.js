@@ -5,6 +5,8 @@ Object.assign(
     ConnectionsMixin,
     ModalsMixin,
     ExportMixin,
+    HistoryMixin,
+    ShortcutsMixin,
     EventsMixin
 );
 

@@ -310,6 +310,7 @@ const LibraryMixin = {
         const extra = template.placeholder ? 16 : 0;
         const height = Math.max(90, 50 + Math.max(template.inputs.length, template.outputs.length) * 20) + extra;
         const pos = this.findFreePosition(x, y, 160, height);
+        this.recordHistory();
         x = this.snap(pos.x);
         y = this.snap(pos.y);
         
@@ -372,6 +373,7 @@ const LibraryMixin = {
         const text = (prompt('Text:', '') || '').trim();
         if (!text) return;
         
+        this.recordHistory();
         const box = {
             id: `textbox-${this.nextTextboxId++}`,
             text: text,

@@ -180,9 +180,9 @@ const ExportMixin = {
         reader.readAsArrayBuffer(file);
     },
 
-    saveDiagram() {
+    serializeDiagram() {
         this.storeActiveSheet();
-        const data = {
+        return {
             sheets: this.sheets.map(s => ({ id: s.id, name: s.name, devices: s.devices, connections: s.connections, textboxes: s.textboxes || [] })),
             activeSheet: this.activeSheet,
             lineStyle: this.lineStyle,
@@ -201,14 +201,114 @@ const ExportMixin = {
             groups: this.groups,
             cableTypes: this.cableTypes
         };
-        
+    },
+
+    saveDiagram() {
+        const data = this.serializeDiagram();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${this.projectName.replace(/\s+/g, '_')}_blockschaltbild.json`;
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}`;
+        const baseName = (this.projectNumber || '').trim() || this.projectName;
+        a.download = `${baseName.replace(/\s+/g, '_')}_${dateStr}.ict`;
         a.click();
         URL.revokeObjectURL(url);
+    },
+
+    loadAutosaveSettings() {
+        this.autosaveEnabled = true;
+        this.autosaveMinutes = 5;
+        try {
+            const raw = localStorage.getItem(this.autosaveSettingsKey);
+            if (raw) {
+                const s = JSON.parse(raw);
+                if (typeof s.enabled === 'boolean') this.autosaveEnabled = s.enabled;
+                const m = parseInt(s.minutes);
+                if (m >= 1 && m <= 120) this.autosaveMinutes = m;
+            }
+        } catch (err) {
+            console.warn('Autosave-Einstellungen konnten nicht gelesen werden:', err);
+        }
+        const chk = document.getElementById('chkAutosave');
+        const inp = document.getElementById('autosaveMinutes');
+        if (chk) chk.checked = this.autosaveEnabled;
+        if (inp) inp.value = this.autosaveMinutes;
+        this.restartAutosaveTimer();
+        this.updateAutosaveStatus();
+    },
+
+    setAutosave(enabled, minutes) {
+        this.autosaveEnabled = !!enabled;
+        const m = parseInt(minutes);
+        if (m >= 1 && m <= 120) this.autosaveMinutes = m;
+        try {
+            localStorage.setItem(this.autosaveSettingsKey, JSON.stringify({ enabled: this.autosaveEnabled, minutes: this.autosaveMinutes }));
+        } catch (err) {
+            console.warn('Autosave-Einstellungen konnten nicht gespeichert werden:', err);
+        }
+        this.restartAutosaveTimer();
+        this.updateAutosaveStatus();
+    },
+
+    restartAutosaveTimer() {
+        if (this.autosaveTimer) clearInterval(this.autosaveTimer);
+        this.autosaveTimer = null;
+        if (!this.autosaveEnabled) return;
+        this.autosaveTimer = setInterval(() => this.runAutosave(), this.autosaveMinutes * 60 * 1000);
+    },
+
+    runAutosave() {
+        if (!this.autosaveEnabled) return;
+        try {
+            const data = this.serializeDiagram();
+            data.autosavedAt = new Date().toISOString();
+            localStorage.setItem(this.autosaveDataKey, JSON.stringify(data));
+            this.lastAutosaveAt = new Date();
+            this.updateAutosaveStatus();
+        } catch (err) {
+            console.warn('Autosave fehlgeschlagen:', err);
+        }
+    },
+
+    updateAutosaveStatus() {
+        const el = document.getElementById('autosaveStatus');
+        if (!el) return;
+        if (!this.autosaveEnabled) {
+            el.textContent = 'Autosave ist deaktiviert';
+        } else if (this.lastAutosaveAt) {
+            const t = this.lastAutosaveAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            el.textContent = `Zuletzt automatisch gesichert: ${t}`;
+        } else {
+            el.textContent = `Autosave alle ${this.autosaveMinutes} Min. (lokal im Browser)`;
+        }
+    },
+
+    async restoreAutosave() {
+        let data = null;
+        try {
+            const raw = localStorage.getItem(this.autosaveDataKey);
+            if (raw) data = JSON.parse(raw);
+        } catch (err) {
+            console.warn('Autosave konnte nicht gelesen werden:', err);
+        }
+        if (!data) {
+            alert('Keine automatische Sicherung vorhanden.');
+            return;
+        }
+        const when = data.autosavedAt ? new Date(data.autosavedAt).toLocaleString('de-DE') : 'unbekannt';
+        const name = data.projectName || 'Unbenannt';
+        if (!confirm(`Automatische Sicherung wiederherstellen?\n\nProjekt: ${name}\nGesichert: ${when}\n\nDas aktuelle Diagramm wird ersetzt.`)) return;
+        this.showLoading('Sicherung wird wiederhergestellt ...', 5, `Projekt „${name}"`);
+        this.recordHistory();
+        try {
+            await this.nextFrame();
+            await this.applyDiagramData(data);
+        } catch (err) {
+            this.hideLoading();
+            alert('Fehler beim Wiederherstellen: ' + err.message);
+        }
     },
 
     loadDiagram(e) {
@@ -224,101 +324,11 @@ const ExportMixin = {
         };
         reader.onload = async (event) => {
             try {
-                this.updateLoading('Projekt wird geladen …', 8, 'Projektdaten werden analysiert');
+                this.updateLoading('Projekt wird geladen ...', 8, 'Projektdaten werden analysiert');
                 await this.nextFrame();
                 const data = JSON.parse(event.target.result);
-                this.devices = [];
-                this.connections = [];
-                this.devicesLayer.innerHTML = '';
-                this.connectionsLayer.innerHTML = '';
-                
-                if (data.projectName) {
-                    this.projectName = data.projectName;
-                    document.getElementById('projectName').value = data.projectName;
-                }
-                if (data.projectNumber) {
-                    this.projectNumber = data.projectNumber;
-                    document.getElementById('projectNumber').value = data.projectNumber;
-                }
-                this.eventFrom = data.eventFrom || '';
-                this.eventTo = data.eventTo || '';
-                this.eventLocation = data.eventLocation || '';
-                this.projectAuthor = data.projectAuthor || '';
-                this.updateProjectDisplay();
-                
-                this.updateLoading('Projekt wird geladen …', 12, 'Bibliothek wird abgeglichen');
-                await this.nextFrame();
-                const merged = this.mergeIntoLibrary(data);
-                
-                if (data.lineStyle) {
-                    this.lineStyle = data.lineStyle;
-                    document.getElementById('selLineStyle').value = data.lineStyle;
-                }
-                if (data.gridSize) {
-                    this.gridSize = data.gridSize;
-                    document.getElementById('gridSizeInput').value = data.gridSize;
-                }
-                if (typeof data.gridVisible === 'boolean') {
-                    this.gridVisible = data.gridVisible;
-                    document.getElementById('chkGridVisible').checked = data.gridVisible;
-                }
-                if (typeof data.snapToGrid === 'boolean') {
-                    this.snapToGrid = data.snapToGrid;
-                    document.getElementById('chkSnapGrid').checked = data.snapToGrid;
-                }
-                this.updateGrid();
-                
-                if (data.sheets && data.sheets.length > 0) {
-                    this.sheets = data.sheets.map((s, i) => ({
-                        id: s.id || (i + 1),
-                        name: s.name || `Blatt ${i + 1}`,
-                        devices: s.devices || [],
-                        connections: s.connections || [],
-                        textboxes: s.textboxes || []
-                    }));
-                } else {
-                    this.sheets = [{ id: 1, name: 'Blatt 1', devices: data.devices || [], connections: data.connections || [], textboxes: data.textboxes || [] }];
-                }
-                this.nextSheetId = Math.max(0, ...this.sheets.map(s => parseInt(s.id) || 0)) + 1;
-                
-                const allDevices = this.sheets.reduce((a, s) => a.concat(s.devices), []);
-                const allConnections = this.sheets.reduce((a, s) => a.concat(s.connections), []);
-                const allTextboxes = this.sheets.reduce((a, s) => a.concat(s.textboxes), []);
-                this.nextDeviceId = Math.max(0, ...allDevices.map(d => parseInt(String(d.id).split('-')[1]) || 0)) + 1;
-                this.nextConnectionId = Math.max(0, ...allConnections.map(c => parseInt(String(c.id).split('-')[1]) || 0)) + 1;
-                this.nextTextboxId = Math.max(0, ...allTextboxes.map(t => parseInt(String(t.id).split('-')[1]) || 0)) + 1;
-                
-                let active = typeof data.activeSheet === 'number' ? data.activeSheet : 0;
-                if (active < 0 || active >= this.sheets.length) active = 0;
-                const sheetName = this.sheets[active].name;
-                await this.activateSheetAsync(active, (done, total, label) => {
-                    const pct = 15 + (done / Math.max(1, total)) * 75;
-                    this.updateLoading(`Blatt „${sheetName}“ wird aufgebaut …`, pct, label);
-                });
-                const messages = [];
-                if (merged && (merged.templates || merged.groups || merged.cables)) {
-                    const mParts = [];
-                    if (merged.templates) mParts.push(`${merged.templates} Gerät(e)`);
-                    if (merged.groups) mParts.push(`${merged.groups} Gruppe(n)`);
-                    if (merged.cables) mParts.push(`${merged.cables} Kabeltyp(en)`);
-                    messages.push('Neu in die zentrale Bibliothek übernommen:\n' + mParts.join(', '));
-                }
-                if (this.autoConverter) {
-                    this.updateLoading('Projekt wird geladen …', 92, 'Signalprüfung läuft');
-                    await this.nextFrame();
-                    const res = this.validateConnections(true);
-                    if (res.inserted || res.removed || res.blocked) {
-                        const parts = [];
-                        if (res.inserted) parts.push(`${res.inserted} fehlende(r) Konverter eingefügt`);
-                        if (res.removed) parts.push(`${res.removed} überflüssige(r) Konverter entfernt`);
-                        if (res.blocked) parts.push(`${res.blocked} Verbindung(en) ohne passenden Konverter`);
-                        messages.push('Signalprüfung nach dem Laden:\n' + parts.join('\n'));
-                    }
-                }
-                this.updateLoading('Projekt geladen', 100, `${this.devices.length} Geräte, ${this.connections.length} Verbindungen`);
-                await this.nextFrame();
-                this.hideLoading();
-                if (messages.length) alert(messages.join('\n\n'));
+                this.recordHistory();
+                await this.applyDiagramData(data);
             } catch (err) {
                 this.hideLoading();
                 alert('Fehler beim Laden: ' + err.message);
@@ -326,6 +336,110 @@ const ExportMixin = {
         };
         reader.readAsText(file);
         e.target.value = '';
+    },
+
+    async applyDiagramData(data) {
+        this.historySuspended = true;
+        try {
+            await this.applyDiagramDataInner(data);
+        } finally {
+            this.historySuspended = false;
+        }
+    },
+
+    async applyDiagramDataInner(data) {
+        this.devices = [];
+        this.connections = [];
+        this.devicesLayer.innerHTML = '';
+        this.connectionsLayer.innerHTML = '';
+        
+        if (data.projectName) {
+            this.projectName = data.projectName;
+            document.getElementById('projectName').value = data.projectName;
+        }
+        if (data.projectNumber) {
+            this.projectNumber = data.projectNumber;
+            document.getElementById('projectNumber').value = data.projectNumber;
+        }
+        this.eventFrom = data.eventFrom || '';
+        this.eventTo = data.eventTo || '';
+        this.eventLocation = data.eventLocation || '';
+        this.projectAuthor = data.projectAuthor || '';
+        this.updateProjectDisplay();
+        
+        this.updateLoading('Projekt wird geladen …', 12, 'Bibliothek wird abgeglichen');
+        await this.nextFrame();
+        const merged = this.mergeIntoLibrary(data);
+        
+        if (data.lineStyle) {
+            this.lineStyle = data.lineStyle;
+            document.getElementById('selLineStyle').value = data.lineStyle;
+        }
+        if (data.gridSize) {
+            this.gridSize = data.gridSize;
+            document.getElementById('gridSizeInput').value = data.gridSize;
+        }
+        if (typeof data.gridVisible === 'boolean') {
+            this.gridVisible = data.gridVisible;
+            document.getElementById('chkGridVisible').checked = data.gridVisible;
+        }
+        if (typeof data.snapToGrid === 'boolean') {
+            this.snapToGrid = data.snapToGrid;
+            document.getElementById('chkSnapGrid').checked = data.snapToGrid;
+        }
+        this.updateGrid();
+        
+        if (data.sheets && data.sheets.length > 0) {
+            this.sheets = data.sheets.map((s, i) => ({
+                id: s.id || (i + 1),
+                name: s.name || `Blatt ${i + 1}`,
+                devices: s.devices || [],
+                connections: s.connections || [],
+                textboxes: s.textboxes || []
+            }));
+        } else {
+            this.sheets = [{ id: 1, name: 'Blatt 1', devices: data.devices || [], connections: data.connections || [], textboxes: data.textboxes || [] }];
+        }
+        this.nextSheetId = Math.max(0, ...this.sheets.map(s => parseInt(s.id) || 0)) + 1;
+        
+        const allDevices = this.sheets.reduce((a, s) => a.concat(s.devices), []);
+        const allConnections = this.sheets.reduce((a, s) => a.concat(s.connections), []);
+        const allTextboxes = this.sheets.reduce((a, s) => a.concat(s.textboxes), []);
+        this.nextDeviceId = Math.max(0, ...allDevices.map(d => parseInt(String(d.id).split('-')[1]) || 0)) + 1;
+        this.nextConnectionId = Math.max(0, ...allConnections.map(c => parseInt(String(c.id).split('-')[1]) || 0)) + 1;
+        this.nextTextboxId = Math.max(0, ...allTextboxes.map(t => parseInt(String(t.id).split('-')[1]) || 0)) + 1;
+        
+        let active = typeof data.activeSheet === 'number' ? data.activeSheet : 0;
+        if (active < 0 || active >= this.sheets.length) active = 0;
+        const sheetName = this.sheets[active].name;
+        await this.activateSheetAsync(active, (done, total, label) => {
+            const pct = 15 + (done / Math.max(1, total)) * 75;
+            this.updateLoading(`Blatt „${sheetName}“ wird aufgebaut …`, pct, label);
+        });
+        const messages = [];
+        if (merged && (merged.templates || merged.groups || merged.cables)) {
+            const mParts = [];
+            if (merged.templates) mParts.push(`${merged.templates} Gerät(e)`);
+            if (merged.groups) mParts.push(`${merged.groups} Gruppe(n)`);
+            if (merged.cables) mParts.push(`${merged.cables} Kabeltyp(en)`);
+            messages.push('Neu in die zentrale Bibliothek übernommen:\n' + mParts.join(', '));
+        }
+        if (this.autoConverter) {
+            this.updateLoading('Projekt wird geladen …', 92, 'Signalprüfung läuft');
+            await this.nextFrame();
+            const res = this.validateConnections(true);
+            if (res.inserted || res.removed || res.blocked) {
+                const parts = [];
+                if (res.inserted) parts.push(`${res.inserted} fehlende(r) Konverter eingefügt`);
+                if (res.removed) parts.push(`${res.removed} überflüssige(r) Konverter entfernt`);
+                if (res.blocked) parts.push(`${res.blocked} Verbindung(en) ohne passenden Konverter`);
+                messages.push('Signalprüfung nach dem Laden:\n' + parts.join('\n'));
+            }
+        }
+        this.updateLoading('Projekt geladen', 100, `${this.devices.length} Geräte, ${this.connections.length} Verbindungen`);
+        await this.nextFrame();
+        this.hideLoading();
+        if (messages.length) alert(messages.join('\n\n'));
     },
 
     inlineComputedStyles(liveRoot, cloneRoot) {

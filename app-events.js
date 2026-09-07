@@ -14,9 +14,22 @@ const EventsMixin = {
         document.getElementById('projectForm').addEventListener('submit', (e) => this.saveProjectData(e));
         
         document.getElementById('btnNew').addEventListener('click', () => this.newDiagram());
+        document.getElementById('btnUndo').addEventListener('click', () => this.undo());
+        document.getElementById('btnRedo').addEventListener('click', () => this.redo());
         document.getElementById('btnSave').addEventListener('click', () => this.saveDiagram());
         document.getElementById('btnLoad').addEventListener('click', () => document.getElementById('fileLoad').click());
         document.getElementById('fileLoad').addEventListener('change', (e) => this.loadDiagram(e));
+        document.getElementById('chkAutosave').addEventListener('change', (e) => {
+            this.setAutosave(e.target.checked, document.getElementById('autosaveMinutes').value);
+        });
+        document.getElementById('autosaveMinutes').addEventListener('change', (e) => {
+            let m = parseInt(e.target.value);
+            if (isNaN(m) || m < 1) m = 1;
+            if (m > 120) m = 120;
+            e.target.value = m;
+            this.setAutosave(document.getElementById('chkAutosave').checked, m);
+        });
+        document.getElementById('btnRestoreAutosave').addEventListener('click', () => this.restoreAutosave());
         
         document.getElementById('btnImportDevices').addEventListener('click', () => document.getElementById('fileImportDevices').click());
         document.getElementById('fileImportDevices').addEventListener('change', (e) => this.importDevices(e));
@@ -181,6 +194,9 @@ const EventsMixin = {
         document.querySelector('.canvas-wrapper')?.addEventListener('scroll', () => this.hideDeviceContextMenu());
         
         document.addEventListener('keydown', (e) => {
+            const tag = (e.target.tagName || '').toLowerCase();
+            const inField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+            if (!inField && this.handleShortcutKey(e)) return;
             if (e.key === 'Delete' && this.selectedElement) {
                 this.deleteSelected();
             }
@@ -193,7 +209,12 @@ const EventsMixin = {
                 this.hideDeviceManageModal();
                 this.hideCableModal();
                 this.hideProjectModal();
+                this.hideShortcutsModal();
             }
         });
+        
+        document.getElementById('btnShowShortcuts').addEventListener('click', () => this.showShortcutsModal());
+        document.getElementById('btnCloseShortcuts').addEventListener('click', () => this.hideShortcutsModal());
+        this.initShortcutHints();
     }
 };

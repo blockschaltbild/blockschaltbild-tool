@@ -3,6 +3,47 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.07 – 2026-09-07
+
+### Tastenkürzel (neu)
+- Neuer Menüpunkt Ansicht → „Tastenkürzel…“ öffnet ein Fenster mit allen Kürzeln (Anzeige passt sich an Mac ⌘ / Windows Strg an); Kürzel auch per Strg+/ bzw. Cmd+/
+- Bearbeiten: Strg+Z Rückgängig, Strg+Y / Strg+Shift+Z Wiederherstellen, Strg+C markiertes Gerät kopieren, Strg+V Gerät einfügen (wird versetzt neben dem Original platziert, mehrfaches Einfügen möglich)
+- Geräte: Strg+F öffnet die Gerätesuche in der Bibliothek (klappt die Seitenleiste bei Bedarf auf), Strg+E öffnet die Geräteverwaltung für das markierte Gerät
+- Datei: Strg+S Speichern, Strg+P Plan-PDF (A1), Strg+Shift+P Listen-PDF, Strg+I Projekteigenschaften
+- Verbindungen: Strg+B Auto-Verbinden, Strg+Shift+K Kurve, Strg+Shift+E 90° Ecken
+- Ansicht: Strg++ / Strg+− Zoom, Strg+0 Zoom auf 100 %, Strg+G Raster an/aus, Strg+Shift+G Einrasten an/aus
+- Kürzel wirken nicht in Eingabefeldern und (außer Esc und Strg+/) nicht bei geöffnetem Dialog; Menü-Tooltips zeigen das zugehörige Kürzel
+- Neue Datei `app-shortcuts.js`; Versionsnummer und Cache-Busting-Parameter auf 1.07 gesetzt
+
+## Version 1.06 – 2026-09-07
+
+### Rückgängig / Wiederherstellen (neu)
+- Zwei neue Icons in der Menüleiste (neben Projektname/-nummer): Rückgängig und Wiederherstellen
+- Bis zu 20 Bearbeitungsschritte können rückgängig gemacht und wieder vorgesprungen werden
+- Tastenkürzel: Strg+Z / Cmd+Z (Rückgängig), Strg+Y bzw. Cmd+Shift+Z (Wiederherstellen); in Eingabefeldern bleibt die normale Browser-Funktion aktiv
+- Erfasst werden: Geräte/Textfelder/Verbindungen hinzufügen, löschen, verschieben; Verbindungen umstecken, Knickpunkte ziehen, Kurve zurücksetzen; Eigenschaften (Name, Typ, Gruppe, Farbe, Kabeltyp, Länge, Beschriftung, Textfeld-Text/-Größe/-Farben); Auto-Verbinden, Verbindungen löschen, Signale prüfen/Konverter; Arbeitsbereiche anlegen/löschen/umbenennen; Neu, Laden und Autosave-Wiederherstellung
+- Zusammenhängende Aktionen (z. B. Löschen eines Geräts inkl. seiner Verbindungen, fortlaufendes Tippen in einem Textfeld) werden als ein Schritt behandelt
+- Icons sind ausgegraut, wenn kein Schritt verfügbar ist; der Tooltip zeigt die Anzahl der verfügbaren Schritte
+- Neue Datei `app-history.js`; Versionsnummer und Cache-Busting-Parameter auf 1.06 gesetzt
+
+## Version 1.05 – 2026-09-07
+
+### Autosave (neu)
+- Automatische Sicherung des Diagramms im Browser (localStorage), ein-/ausschaltbar im Menü „Datei"
+- Intervall frei einstellbar (1–120 Minuten, Standard 5 Minuten); Einstellungen werden gespeichert
+- Statusanzeige im Menü zeigt den Zeitpunkt der letzten Sicherung
+- Neuer Menüpunkt „Autosave wiederherstellen" lädt die letzte automatische Sicherung
+
+### Speichern / Laden
+- Neues Projekt-Dateiformat `.ict` (Inhalt bleibt JSON, bestehende `.json`-Dateien lassen sich weiterhin laden)
+- Dateiname beim Speichern enthält jetzt das Datum: `Projektname_JJJJ_MM_TT.ict`
+- Serialisierung des Diagramms in eigene Funktion ausgelagert (gemeinsam genutzt von Speichern und Autosave)
+
+### Sonstiges
+- Favicon hinzugefügt (`favicon.png`)
+- Versionsnummer und Cache-Busting-Parameter auf 1.05 gesetzt
+- Vorgängerversion 1.04 archiviert als `blockschaltbild-archiv/blockschaltbild_v1.04_2026-09-07.zip`
+
 ## Version 1.04 – 2026-09-07
 
 Enthält alle Änderungen der internen Offline-Version 1.03 (nicht veröffentlicht).

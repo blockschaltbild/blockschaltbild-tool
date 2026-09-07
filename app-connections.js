@@ -73,18 +73,16 @@ const ConnectionsMixin = {
         const oldPortId = state.end === 'from' ? conn.fromPort : conn.toPort;
         const old = this.findPort(oldDeviceId, oldPortId, neededType);
         
+        if ((state.end === 'from' && newDeviceId === conn.toDevice) || (state.end === 'to' && newDeviceId === conn.fromDevice)) {
+            this.renderConnection(conn);
+            return;
+        }
+        this.recordHistory();
+        
         if (state.end === 'from') {
-            if (newDeviceId === conn.toDevice) {
-                this.renderConnection(conn);
-                return;
-            }
             conn.fromDevice = newDeviceId;
             conn.fromPort = newPortId;
         } else {
-            if (newDeviceId === conn.fromDevice) {
-                this.renderConnection(conn);
-                return;
-            }
             conn.toDevice = newDeviceId;
             conn.toPort = newPortId;
         }
@@ -158,6 +156,7 @@ const ConnectionsMixin = {
     },
 
     removeConnection(conn) {
+        this.recordHistory();
         const from = this.findPort(conn.fromDevice, conn.fromPort, 'output');
         const to = this.findPort(conn.toDevice, conn.toPort, 'input');
         this.connections = this.connections.filter(c => c.id !== conn.id);
@@ -173,6 +172,7 @@ const ConnectionsMixin = {
     },
 
     removeDevice(device) {
+        this.recordHistory();
         this.connections.filter(c => c.fromDevice === device.id || c.toDevice === device.id)
             .forEach(c => this.removeConnection(c));
         this.devices = this.devices.filter(d => d.id !== device.id);
@@ -297,6 +297,7 @@ const ConnectionsMixin = {
         const toDevice = this.devices.find(d => d.id === toDeviceId);
         const fromPort = fromDevice.outputs.find(p => p.id === fromPortId);
         const toPort = toDevice.inputs.find(p => p.id === toPortId);
+        this.recordHistory();
         
         const fromType = this.signalType(fromPort);
         const toType = this.signalType(toPort);
@@ -1081,6 +1082,8 @@ const ConnectionsMixin = {
     },
 
     clearConnections() {
+        if (!this.connections.length) return;
+        this.recordHistory();
         this.connections.forEach(conn => {
             document.getElementById(conn.id)?.remove();
             const fromDevice = this.devices.find(d => d.id === conn.fromDevice);

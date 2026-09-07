@@ -10,6 +10,7 @@ const ModalsMixin = {
         `;
         
         panel.querySelector('#propTextboxText').addEventListener('input', (e) => {
+            this.recordHistory({ merge: `textbox-text-${box.id}` });
             box.text = e.target.value;
             this.renderTextbox(box);
             document.getElementById(box.id).classList.add('selected');
@@ -17,16 +18,19 @@ const ModalsMixin = {
         panel.querySelector('#propTextboxSize').addEventListener('input', (e) => {
             const value = parseInt(e.target.value, 10);
             if (!Number.isFinite(value) || value < 6) return;
+            this.recordHistory({ merge: `textbox-size-${box.id}` });
             box.fontSize = Math.min(value, 96);
             this.renderTextbox(box);
             document.getElementById(box.id).classList.add('selected');
         });
         panel.querySelector('#propTextboxTextColor').addEventListener('input', (e) => {
+            this.recordHistory({ merge: `textbox-color-${box.id}` });
             box.textColor = e.target.value;
             this.renderTextbox(box);
             document.getElementById(box.id).classList.add('selected');
         });
         panel.querySelector('#propTextboxBorderColor').addEventListener('input', (e) => {
+            this.recordHistory({ merge: `textbox-border-${box.id}` });
             box.borderColor = e.target.value;
             this.renderTextbox(box);
             document.getElementById(box.id).classList.add('selected');
@@ -63,6 +67,7 @@ const ModalsMixin = {
             this.applyDeviceChange(device, { color: e.target.value });
         });
         panel.querySelector('#propPlaceholder').addEventListener('change', (e) => {
+            this.recordHistory();
             device.placeholder = e.target.checked;
             this.renderDevice(device);
             this.markSelectedDevice(device);
@@ -109,6 +114,7 @@ const ModalsMixin = {
             if (gc) changes = { ...changes, color: gc };
         }
         const assign = (target) => props.forEach(p => { if (p in changes) target[p] = changes[p]; });
+        this.recordHistory(options.merge ? { merge: options.merge } : {});
         
         if (device.placeholder || options.local) {
             assign(device);
@@ -168,6 +174,7 @@ const ModalsMixin = {
 
     propagateTemplateChange(before, template) {
         if (!before) return;
+        this.recordHistory();
         const key = this.sameDeviceKey(before);
         const changes = { name: template.name, type: template.type, article: template.article || '', group: template.group || 'other', color: template.color };
         this.allDevices().forEach(d => {
@@ -233,7 +240,7 @@ const ModalsMixin = {
         menu.addEventListener('mousedown', (e) => e.stopPropagation());
         
         menu.querySelector('#ctxDeviceColor').addEventListener('input', (e) => {
-            this.applyDeviceChange(device, { color: e.target.value }, { local: true });
+            this.applyDeviceChange(device, { color: e.target.value }, { local: true, merge: `device-color-${device.id}` });
         });
         
         menu.querySelectorAll('button[data-action]').forEach(btn => {
@@ -285,11 +292,13 @@ const ModalsMixin = {
         `;
         
         panel.querySelector('#propConnName').addEventListener('input', (e) => {
+            this.recordHistory({ merge: `conn-name-${conn.id}` });
             conn.name = e.target.value;
             this.renderConnection(conn);
         });
         panel.querySelectorAll('#propLabelColor .color-swatch').forEach(btn => {
             btn.addEventListener('click', () => {
+                this.recordHistory();
                 conn.labelColor = btn.dataset.color;
                 panel.querySelectorAll('#propLabelColor .color-swatch').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -298,6 +307,7 @@ const ModalsMixin = {
         });
         panel.querySelectorAll('#propLineColor .color-swatch').forEach(btn => {
             btn.addEventListener('click', () => {
+                this.recordHistory();
                 conn.lineColor = btn.dataset.color;
                 panel.querySelectorAll('#propLineColor .color-swatch').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -305,14 +315,18 @@ const ModalsMixin = {
             });
         });
         panel.querySelector('#propCableType').addEventListener('change', (e) => {
+            this.recordHistory();
             conn.cableType = e.target.value;
             this.renderConnection(conn);
         });
         panel.querySelector('#propCableLength').addEventListener('change', (e) => {
+            this.recordHistory();
             conn.length = e.target.value;
             this.renderConnection(conn);
         });
         panel.querySelector('#btnResetCurve').addEventListener('click', () => {
+            if (!conn.waypoints) return;
+            this.recordHistory();
             delete conn.waypoints;
             this.renderConnection(conn);
         });

@@ -270,6 +270,7 @@ const CanvasMixin = {
         const y = (e.clientY - rect.top) / this.zoom;
         
         if (this.draggedDevice) {
+            this.beginDragHistory();
             this.draggedDevice.x = Math.max(0, this.snap(x - this.dragOffset.x));
             this.draggedDevice.y = Math.max(0, this.snap(y - this.dragOffset.y));
             this.renderDevice(this.draggedDevice);
@@ -277,6 +278,7 @@ const CanvasMixin = {
         }
         
         if (this.draggedTextbox) {
+            this.beginDragHistory();
             this.draggedTextbox.x = Math.max(0, this.snap(x - this.dragOffset.x));
             this.draggedTextbox.y = Math.max(0, this.snap(y - this.dragOffset.y));
             this.renderTextbox(this.draggedTextbox);
@@ -284,6 +286,7 @@ const CanvasMixin = {
         }
         
         if (this.bendDrag) {
+            this.beginDragHistory();
             const conn = this.bendDrag.conn;
             if (!conn.waypoints) conn.waypoints = [];
             const pad = this.canvasPadding;
@@ -326,6 +329,7 @@ const CanvasMixin = {
 
     onMouseUp(e) {
         this.draggedDevice = null;
+        this.endDragHistory();
         
         if (this.draggedTextbox) {
             this.draggedTextbox = null;

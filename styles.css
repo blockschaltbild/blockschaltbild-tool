@@ -276,6 +276,26 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     background: var(--ict-border);
 }
 
+.menu-autosave {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.menu-autosave input[type="number"] {
+    width: 56px;
+    padding: 3px 6px;
+    font-size: 12px;
+    border: 1px solid var(--ict-border);
+    border-radius: 6px;
+}
+
+.menu-autosave .menu-hint {
+    font-size: 11px;
+    color: #6b7280;
+    padding: 2px 12px 4px;
+}
+
 .properties-panel.highlight {
     animation: propertiesFlash 1.2s ease-out;
     border-radius: 10px;
@@ -459,6 +479,35 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 .zoom-controls button {
     min-width: 36px;
+}
+
+.history-controls {
+    gap: 4px;
+}
+
+.toolbar .history-controls .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.toolbar .history-controls .icon-btn svg {
+    display: block;
+}
+
+.toolbar .history-controls .icon-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.toolbar .history-controls .icon-btn:disabled:hover {
+    background: #ffffff;
+    border-color: var(--ict-text);
+    color: var(--ict-text);
 }
 
 input[type="checkbox"] {
@@ -1281,6 +1330,69 @@ input[type="checkbox"] {
     color: var(--ict-muted);
     font-size: 13px;
     margin-bottom: 14px;
+}
+
+.shortcuts-list h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ict-muted);
+    margin: 18px 0 6px;
+}
+
+.shortcuts-list h3:first-child {
+    margin-top: 0;
+}
+
+.shortcuts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.shortcuts-table td {
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--ict-gray);
+    color: var(--ict-text);
+    vertical-align: middle;
+}
+
+.shortcuts-table tr:last-child td {
+    border-bottom: none;
+}
+
+.shortcuts-table .shortcut-keys {
+    text-align: right;
+    white-space: nowrap;
+    width: 40%;
+}
+
+.shortcuts-table kbd {
+    display: inline-block;
+    min-width: 22px;
+    padding: 3px 7px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--ict-text);
+    background: var(--ict-gray);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+}
+
+.shortcuts-table .shortcut-plus {
+    margin: 0 3px;
+    color: var(--ict-muted);
+    font-size: 12px;
+}
+
+.shortcuts-table .shortcut-or {
+    margin: 0 8px;
+    color: var(--ict-muted);
+    font-size: 12px;
 }
 
 .modal-content form label,
