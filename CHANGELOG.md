@@ -3,6 +3,18 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.08 – 2026-09-07
+
+### Installation als App (PWA, neu)
+- Das Tool kann in Google Chrome, Brave und Microsoft Edge als eigenständige App installiert werden (eigenes Fenster ohne Browser-Leiste, Symbol im Dock/Startmenü)
+- Neuer Menüpunkt Ansicht → „Als App installieren..." öffnet den Installations-Dialog des Browsers; ist er nicht verfügbar, wird eine browserspezifische Anleitung angezeigt (Chrome/Brave: Symbol „Installieren" in der Adressleiste)
+- Läuft das Tool bereits als App, zeigt der Menüpunkt „Als App installiert" an
+- Web-App-Manifest (`manifest.webmanifest`) mit Name, Farben, Icons (192/512 px unter `icons/`) und Querformat-Vorgabe
+- Service Worker (`sw.js`): App-Dateien und CDN-Bibliotheken (pdf.js, jsPDF, html2canvas, SheetJS) werden nach dem ersten Aufruf zwischengespeichert; das Tool lässt sich dadurch auch offline starten. Online wird immer die aktuelle Version geladen (Netzwerk zuerst, Cache als Fallback)
+- Dateizuordnung: Installierte App registriert sich für `.ict`/`.json`-Projektdateien; per Doppelklick geöffnete Dateien werden direkt geladen (Chrome/Edge/Brave)
+- Theme-Farbe und Apple-Touch-Icon für Safari/iOS ergänzt
+- Neue Datei `app-pwa.js`; Versionsnummer und Cache-Busting-Parameter auf 1.08 gesetzt
+
 ## Version 1.07 – 2026-09-07
 
 ### Tastenkürzel (neu)
