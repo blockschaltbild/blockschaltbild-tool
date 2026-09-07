@@ -1003,8 +1003,6 @@ const ModalsMixin = {
         document.getElementById('importUrlForm').style.display = 'none';
         document.getElementById('importPasteBlock').style.display = 'none';
         document.getElementById('importPasteText').value = '';
-        document.getElementById('importProgressWrap').style.display = 'none';
-        document.getElementById('importProgressBar').style.width = '0%';
         document.getElementById('importChoiceCancelRow').style.display = '';
         document.getElementById('importChoiceModal').classList.add('active');
     },
@@ -1048,15 +1046,19 @@ const ModalsMixin = {
             return;
         }
 
+        // Warteanzeige wie beim Datenblatt-Import: Spinner mit Statustext im Import-Fenster
         const hint = document.getElementById('importPasteHint');
-        const bar = document.getElementById('importProgressBar');
-        const barWrap = document.getElementById('importProgressWrap');
-        const progress = (pct, msg) => { bar.style.width = Math.round(pct) + '%'; hint.textContent = msg; };
+        const statusEl = document.getElementById('pdfAnalysisStatus').querySelector('p');
+        const progress = (pct, msg) => { statusEl.textContent = msg; };
         hint.style.color = '';
-        barWrap.style.display = 'block';
-        document.getElementById('importPasteBlock').style.display = 'block';
-        document.getElementById('importPasteText').style.display = 'none';
+        hint.textContent = '';
+        document.getElementById('importPasteBlock').style.display = 'none';
         document.getElementById('importUrlSubmit').disabled = true;
+        this.hideImportChoiceModal();
+        document.getElementById('pdfImportTitle').textContent = 'Gerät aus Website importieren';
+        document.getElementById('pdfImportModal').classList.add('active');
+        document.getElementById('pdfAnalysisStatus').style.display = 'block';
+        document.getElementById('pdfDeviceForm').style.display = 'none';
 
         const errors = [];
         const candidates = [];
@@ -1108,18 +1110,19 @@ const ModalsMixin = {
             if (best.type === 'Gerät' && primary && primary.type !== 'Gerät') best.type = primary.type;
             const sources = [...new Set(candidates.map(c => new URL(c._source).host.replace(/^www\./, '')))];
             best._sources = sources;
-            delete best._source; delete best._score;
-            document.getElementById('importPasteBlock').style.display = 'none';
-            barWrap.style.display = 'none';
-            this.hideImportChoiceModal();
+            delete best._source; delete best._score; delete best._weak;
             document.getElementById('pdfImportTitle').textContent = 'Gerät aus Website importieren (Quellen: ' + sources.join(', ') + ')';
-            document.getElementById('pdfImportModal').classList.add('active');
             document.getElementById('pdfAnalysisStatus').style.display = 'none';
             this.showPdfDeviceForm(best);
         } catch (err) {
             console.error('Website-Import Fehler:', err);
+            // Zurück zum Adress-Formular mit Fehlerhinweis und Einfügefeld
+            document.getElementById('pdfImportModal').classList.remove('active');
+            document.getElementById('importChoiceModal').classList.add('active');
+            document.getElementById('importUrlForm').style.display = 'block';
+            document.getElementById('importChoiceCancelRow').style.display = 'none';
+            document.getElementById('importPasteBlock').style.display = 'block';
             hint.style.color = '#c0392b';
-            barWrap.style.display = 'none';
             hint.textContent = 'Keine Quelle konnte ausgelesen werden (' + err.message + '). '
                 + 'Alternative: Seitentext unten einfügen und erneut auf „Seite auslesen" klicken.';
             document.getElementById('importPasteText').style.display = 'block';
@@ -1141,11 +1144,14 @@ const ModalsMixin = {
             if (!rr.ok) throw new Error('Reader ' + rr.status);
             const lines = (await rr.text()).split('\n');
             const results = [];
+            // Reader-Format: Titelzeile, Leerzeilen, dann "  host/pfad    Snippet" – URL steht am Zeilenanfang, Titel ist die letzte nicht-leere Zeile davor
             for (let i = 1; i < lines.length && results.length < 10; i++) {
-                const l = lines[i].trim();
-                if (/^[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(l) && lines[i - 1].trim()) {
-                    results.push({ url: 'https://' + l, title: lines[i - 1].trim().replace(/^PDF\s+/, '') });
-                }
+                const m = lines[i].trim().match(/^((?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?)(?:\s{2,}|$)/i);
+                if (!m) continue;
+                let j = i - 1;
+                while (j >= 0 && !lines[j].trim()) j--;
+                const title = j >= 0 ? lines[j].trim().replace(/^PDF\s+/, '') : '';
+                if (title && !/^(All Regions|Any Time)/.test(title)) results.push({ url: 'https://' + m[1], title });
             }
             if (!results.length) throw new Error('keine Treffer');
             return results;
@@ -1156,12 +1162,15 @@ const ModalsMixin = {
     },
 
     async fetchImportPage(u, endpoint) {
-        const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(u)}`);
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.ok) return data;
-        // Seite blockiert den Vermittler (z. B. thomann.de): Reader-Dienst direkt aus dem Browser nutzen
+        let res = null, data = {};
+        try {
+            res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(u)}`);
+            data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) return data;
+        } catch (err) { data = { error: 'Vermittler nicht erreichbar' }; }
+        // Seite blockiert den Vermittler (z. B. thomann.de) oder Vermittler nicht erreichbar: Reader-Dienst direkt aus dem Browser nutzen
         const rr = await fetch('https://r.jina.ai/' + u, { headers: { 'X-Return-Format': 'markdown' } });
-        if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
+        if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res ? res.status : '-'}`);
         let text = await rr.text();
         const t = text.match(/^Title:\s*(.+)$/m);
         text = text.replace(/^(Title|URL Source|Markdown Content):.*$/gm, '')
@@ -1172,21 +1181,19 @@ const ModalsMixin = {
     },
 
     analyzeImportPage(text, title, srcUrl) {
-        const d = this.analyzeWebsiteText(text || '', title || '', srcUrl)
-            || this.analyzeGenericDatasheet(text || '', (title || srcUrl) + '.pdf');
+        let d = this.analyzeWebsiteText(text || '', title || '', srcUrl)
+            || this.analyzeDisplayDatasheet(text || '', (title || srcUrl) + '.pdf');
+        if (!d) {
+            // Nur Schätzung aus Schlüsselwörtern (Standard-Portanzahl) – beim Zusammenführen mit Datenblättern nicht verwenden
+            d = this.analyzeGenericDatasheet(text || '', (title || srcUrl) + '.pdf');
+            if (d) d._weak = true;
+        }
         if (!d) return null;
         if (!d.name) d.name = title || '';
         d.article = '';
         d._source = srcUrl;
         d._score = (d.inputs || []).length + (d.outputs || []).length + (d.type && d.type !== 'Gerät' ? 2 : 0);
         return d;
-    },
-
-    isDeviceInfoIncomplete(info) {
-        if (!info) return true;
-        return !(info.name || '').trim()
-            || !(info.type || '').trim() || info.type === 'Gerät'
-            || !(info.inputs || []).length || !(info.outputs || []).length;
     },
 
     mergeDeviceInfo(primary, addition) {
@@ -1210,32 +1217,47 @@ const ModalsMixin = {
         return merged;
     },
 
-    // Ergänzt fehlende/unklare Felder eines Datenblatt-Ergebnisses per Websuche und führt beide Quellen zusammen
+    // Prüft jedes Datenblatt-Ergebnis (außer ICT-Datenblätter) per Websuche und führt alle relevanten Treffer zusammen
+    // (gleiches Prinzip wie beim Website-Import: bis zu 3 passende Quellen, Datenblatt-Angaben haben Vorrang)
     async enrichDeviceInfoFromWeb(deviceInfo, filename, statusEl) {
         const endpoint = (typeof BUG_REPORT_CONFIG !== 'undefined' && BUG_REPORT_CONFIG.endpoint) || '';
-        if (!endpoint || !this.isDeviceInfoIncomplete(deviceInfo)) return { info: deviceInfo, sources: [] };
+        if (!endpoint || !deviceInfo || deviceInfo._ict) return { info: deviceInfo, sources: [] };
         try {
-            if (statusEl) statusEl.textContent = 'Ergänze fehlende Angaben per Websuche...';
+            if (statusEl) statusEl.textContent = 'Prüfe Angaben per Websuche...';
             const errors = [];
-            let query = (deviceInfo.name || deviceInfo.article || filename.replace(/\.pdf$/i, '')).trim();
+            let query = (deviceInfo.name || deviceInfo.article || filename.replace(/\.pdf$/i, '').replace(/[-_.]+/g, ' ')).trim();
             query = query.replace(/\s+/g, ' ').split(' ').slice(0, 6).join(' ');
             if (!query) return { info: deviceInfo, sources: [] };
             const results = await this.searchWeb(query + ' technische daten', endpoint, errors);
+            const brand = (query.split(' ')[0] || '').toLowerCase();
             const skip = /youtube|facebook|instagram|ebay|amazon|idealo|geizhals|wikipedia|reddit|\.pdf$/i;
-            const top = results.filter(r => !skip.test(r.url)).slice(0, 2);
-            const candidates = [];
-            for (const r of top) {
+            const modelTokens = query.split(' ').filter(t => /\d/.test(t) && t.length >= 3).map(t => t.toLowerCase().replace(/[^a-z0-9]/g, ''));
+            const matchesModel = r => !modelTokens.length || modelTokens.some(t => (r.title + ' ' + r.url).toLowerCase().replace(/[^a-z0-9]/g, '').includes(t));
+            const top = results
+                .filter(r => !skip.test(r.url) && matchesModel(r))
+                .sort((a, b) => (b.url.toLowerCase().includes(brand) ? 1 : 0) - (a.url.toLowerCase().includes(brand) ? 1 : 0))
+                .slice(0, 3);
+            const candidates = [], checked = [];
+            for (let i = 0; i < top.length; i++) {
+                const host = new URL(top[i].url).host.replace(/^www\./, '');
+                if (statusEl) statusEl.textContent = `Prüfe Angaben per Websuche: Quelle ${i + 1}/${top.length} (${host})...`;
                 try {
-                    const data = await this.fetchImportPage(r.url, endpoint);
-                    const d = this.analyzeImportPage(data.text, data.title || r.title, r.url);
-                    if (d) candidates.push(d);
-                } catch (err) { /* diese Quelle überspringen */ }
+                    const data = await this.fetchImportPage(top[i].url, endpoint);
+                    const d = this.analyzeImportPage(data.text, data.title || top[i].title, top[i].url);
+                    if (d) { checked.push(host); if (!d._weak) candidates.push(d); }
+                } catch (err) { errors.push(`${host}: ${err.message}`); }
             }
-            if (!candidates.length) return { info: deviceInfo, sources: [] };
+            if (!candidates.length) return { info: deviceInfo, sources: [], checked: [...new Set(checked)] };
+            // Alle Treffer zusammenführen: Datenblatt zuerst, dann die Quellen nach Vollständigkeit
             candidates.sort((a, b) => b._score - a._score);
-            const merged = this.mergeDeviceInfo(deviceInfo, candidates[0]);
-            const sources = [...new Set(candidates.map(c => new URL(c._source).host.replace(/^www\./, '')))];
-            return { info: merged, sources };
+            let merged = deviceInfo;
+            const sources = [];
+            for (const c of candidates) {
+                const next = this.mergeDeviceInfo(merged, c);
+                if (JSON.stringify(next) !== JSON.stringify(merged)) sources.push(new URL(c._source).host.replace(/^www\./, ''));
+                merged = next;
+            }
+            return { info: merged, sources: [...new Set(sources)], checked: [...new Set(checked)] };
         } catch (err) {
             console.error('Web-Ergänzung Fehler:', err);
             return { info: deviceInfo, sources: [] };
@@ -1257,16 +1279,29 @@ const ModalsMixin = {
             for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(' ');
+                // Zeilenumbrüche erhalten (hasEOL bzw. Wechsel der Y-Position), damit Tabellenzeilen erkennbar bleiben
+                let pageText = '';
+                let lastY = null, prevEol = false;
+                for (const item of textContent.items) {
+                    const y = Array.isArray(item.transform) ? Math.round(item.transform[5]) : null;
+                    const newLine = prevEol || (lastY !== null && y !== null && Math.abs(y - lastY) > 2);
+                    if (pageText) pageText += newLine ? '\n' : ' ';
+                    pageText += item.str;
+                    prevEol = !!item.hasEOL;
+                    if (y !== null) lastY = y;
+                }
                 fullText += pageText + '\n';
             }
             
             const deviceInfo = this.analyzeDatasheet(fullText, file.name);
             const statusEl = document.getElementById('pdfAnalysisStatus').querySelector('p');
-            const { info: enrichedInfo, sources } = await this.enrichDeviceInfoFromWeb(deviceInfo, file.name, statusEl);
+            const { info: enrichedInfo, sources, checked } = await this.enrichDeviceInfoFromWeb(deviceInfo, file.name, statusEl);
             if (sources.length) {
                 document.getElementById('pdfImportTitle').textContent = 'Gerät aus Datenblatt importieren (ergänzt aus Web: ' + sources.join(', ') + ')';
+            } else if ((checked || []).length) {
+                document.getElementById('pdfImportTitle').textContent = 'Gerät aus Datenblatt importieren (per Websuche geprüft: ' + checked.join(', ') + ')';
             }
+            delete enrichedInfo._ict;
             this.showPdfDeviceForm(enrichedInfo);
             
         } catch (err) {
@@ -1278,10 +1313,115 @@ const ModalsMixin = {
 
     analyzeDatasheet(text, filename) {
         const ict = this.analyzeIctDatasheet(text);
-        if (ict) return ict;
+        if (ict) return { ...ict, _ict: true };
+        const display = this.analyzeDisplayDatasheet(text, filename);
+        if (display) return display;
         const manufacturer = this.analyzeManufacturerDatasheet(text, filename);
         if (manufacturer) return manufacturer;
         return this.analyzeGenericDatasheet(text, filename);
+    },
+
+    knownManufacturers() {
+        return ['Yamaha', 'Allen & Heath', 'Behringer', 'Midas', 'Soundcraft', 'DiGiCo', 'QSC', 'Shure', 'Sennheiser', 'Bose', 'JBL', 'd&b', 'L-Acoustics',
+            'Crestron', 'Extron', 'Kramer', 'Barco', 'Christie', 'Epson', 'Panasonic', 'Sony', 'Blackmagic', 'Roland', 'Biamp', 'BSS', 'Lightware', 'Atlona',
+            'Dell', 'iiyama', 'Samsung', 'LG', 'NEC', 'Sharp', 'Philips', 'BenQ', 'Optoma', 'ViewSonic', 'Logitech', 'Poly', 'Cisco', 'Audio-Technica', 'RCF',
+            'Electro-Voice', 'Dynacord', 'Genelec', 'Neumann', 'AKG', 'Denon', 'Tascam', 'Apart', 'Bosch', 'Netgear', 'Lumens', 'AVer', 'Huddly', 'Vivitek', 'Canon'];
+    },
+
+    // Hersteller erkennen: Kopfzeilen > Dateiname > "Hersteller/Lieferant: X" > häufigster Treffer > Firmierung "X ... GmbH/Inc."
+    detectManufacturer(text, filename) {
+        const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const head = lines.slice(0, 8).join(' ');
+        const base = (filename || '').replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ');
+        const list = this.knownManufacturers();
+        const reFor = (m, flags) => new RegExp('(^|[^a-z0-9])' + m.replace(/[&\-]/g, '.').replace(/\s+/g, '\\s*') + '(?![a-z])', flags || 'i');
+        let hit = list.find(m => reFor(m).test(head)) || list.find(m => reFor(m).test(base));
+        if (hit) return hit;
+        const decl = (text || '').match(/(?:Hersteller|Lieferant|Manufacturer|Marke|Brand)\s*:?\s+([A-Z][\w&.-]{1,30})/);
+        if (decl) return list.find(m => reFor(m).test(decl[1])) || decl[1];
+        const counts = list.map(m => ({ m, n: ((text || '').match(reFor(m, 'gi')) || []).length })).filter(c => c.n).sort((a, b) => b.n - a.n);
+        if (counts.length) return counts[0].m;
+        const corp = (text || '').match(/\b([A-Z][A-Za-z]{2,})\s+(?:Electronics|Deutschland|Europe|Professional)?\s*(?:GmbH|AG|Inc\.?|Ltd\.?|Corporation|Co\.,?\s*Ltd)\b/);
+        return corp ? corp[1] : '';
+    },
+
+    // Modellbezeichnung: "Artikelname/Modell: QM85N" > Dateiname (z. B. Datenblatt_QM85N) > kurze Kopfzeile mit Buchstaben+Ziffern
+    extractModelName(text, filename) {
+        const t = text || '';
+        const labeled = t.match(/(?:Artikelname|Artikelbezeichnung|Modellname|Modellbezeichnung|Modellnummer|Modell|Model(?:\s*(?:name|no\.?|number))?|Produktname|Product\s*name|Typenbezeichnung)[\s:*]+([A-Z][A-Za-z0-9./+-]{1,24}\d[A-Za-z0-9./+-]*)\b/i);
+        if (labeled) return labeled[1].trim();
+        const base = (filename || '').replace(/\.pdf$/i, '').replace(/\(\d+\)/g, ' ').replace(/[_]+/g, ' ');
+        const isModelTok = tok => /^[A-Z]{1,6}-?\d{1,5}[A-Z0-9+/-]*$/i.test(tok) && !/^(db|v\d+)$/i.test(tok);
+        const fileTok = base.split(/\s+/).find(isModelTok) || base.split(/[\s-]+/).find(isModelTok);
+        if (fileTok) return fileTok;
+        const lines = t.split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 12);
+        const headTok = lines.find(l => l.length <= 20 && /^[A-Z]{1,6}[-\s]?\d{1,5}[A-Z0-9+/-]*$/i.test(l));
+        if (headTok) return headTok;
+        return '';
+    },
+
+    extractArticleNumber(text) {
+        const m = (text || '').match(/(?:Artikelnummer|Artikel-?\s*Nr\.?|Art\.?\s*(?:Nr\.?|Nummer|#)|Bestellnummer|Order\s*(?:code|number|no\.?)|Part\s*(?:number|no\.?)|P\/N|SKU|Model\s*code)\s*:?\s*([A-Z0-9][A-Z0-9./-]{2,})/i);
+        return m ? m[1].trim() : '';
+    },
+
+    // Display-/Signage-Datenblätter (z. B. Samsung): Tabellenzeilen "Eingang RGB DVI-D, Display Port 1.2",
+    // "Eingang Video 2x HDMI (HDCP 2.2)", "Eingang Audio 3,5 mm Klinke", "Ausgang RGB HDMI", "Ausgang Audio 3,5 mm Klinke", "LAN Ja".
+    // Regeln: USB/RS232/IR zählen nicht als Signalanschluss, Audio-Zeilen liefern nur Audio-Stecker, LAN immer als Eingang.
+    analyzeDisplayDatasheet(text, filename) {
+        const flat = (text || '').replace(/\s+/g, ' ');
+        const rowRe = /\b(Eingang|Eingänge|Ausgang|Ausgänge|Input|Inputs|Output|Outputs)\s+(RGB|Video|Audio|USB|Digital|Analog|PC|AV|HDMI|Signal)\b\s*:?\s*(.+?)(?=\s(?:Eingang|Eingänge|Ausgang|Ausgänge|Inputs?|Outputs?|Externe|External|WiFi|WLAN|LAN|Konnektivit|Connectivity|Screenmirroring|HDBaseT|Media Player|Samsung|Bluetooth)\b|$)/gi;
+        const rows = [...flat.matchAll(rowRe)];
+        if (rows.length < 2) return null;
+
+        const map = this.connectorMap();
+        const inputs = [], outputs = [], inputCables = [], outputCables = [];
+        const totals = { IN: {}, OUT: {} }, counters = { IN: {}, OUT: {} };
+        const items = [];
+        for (const r of rows) {
+            const dir = /^(Eing|Input)/i.test(r[1]) ? 'IN' : 'OUT';
+            const kind = r[2].toLowerCase();
+            if (kind === 'usb') continue;
+            const value = r[3].replace(/\([^)]*\)/g, ' ');
+            if (/^\s*(N\/A|Nein|No|-)\s*$/i.test(value)) continue;
+            for (const part of value.split(/[,;/](?!\d)/).map(p => p.trim()).filter(Boolean)) {
+                if (/usb|rs-?232|\bir\b|steuer|control/i.test(part)) continue;
+                const entry = kind === 'audio'
+                    ? map.find(m => /Audio|XLR|Cinch|SPDIF|AES/.test(m.label) && m.re.test(part))
+                    : map.find(m => m.re.test(part) && m.label !== 'LAN');
+                if (!entry) continue;
+                const cnt = part.match(/(\d+)\s*x/i);
+                const count = cnt ? Math.min(parseInt(cnt[1]), 16) : 1;
+                items.push({ dir, entry, count });
+                totals[dir][entry.label] = (totals[dir][entry.label] || 0) + count;
+            }
+        }
+        for (const it of items) {
+            for (let i = 0; i < it.count; i++) {
+                counters[it.dir][it.entry.label] = (counters[it.dir][it.entry.label] || 0) + 1;
+                const nm = totals[it.dir][it.entry.label] > 1 ? `${it.entry.label} ${it.dir} ${counters[it.dir][it.entry.label]}` : `${it.entry.label} ${it.dir}`;
+                if (it.dir === 'IN') { inputs.push(nm); inputCables.push(this.matchCableType(it.entry.cable)); }
+                else { outputs.push(nm); outputCables.push(this.matchCableType(it.entry.cable)); }
+            }
+        }
+        if (!inputs.length && !outputs.length) return null;
+        if (/\bLAN\s*(?::\s*)?(Ja|Yes)\b|RJ-?45|Ethernet/i.test(flat)) { inputs.push('LAN'); inputCables.push(this.matchCableType('Cat5/6')); }
+
+        const manufacturer = this.detectManufacturer(text, filename);
+        const model = this.extractModelName(text, filename);
+        const name = [manufacturer, model].filter(Boolean).join(' ').trim() || (filename || '').replace(/\.pdf$/i, '');
+        const article = this.extractArticleNumber(text);
+
+        const tl = flat.toLowerCase();
+        const touch = /touch(?:f[äa]higkeit|[\s-]*technolog\w*|[\s-]*screen)?\s*:?\s*(?:ja|yes|\d+[\s-]*(?:punkt|point))/i.test(flat) || /\btouch\s*display|touchscreen\b/i.test(tl) && !/touch\w*\s*(?:n\/a|nein|no)\b/i.test(tl);
+        let type = 'Display', group = 'video';
+        if (touch) type = 'Touchdisplay';
+        else if (/projektor|projector|lichtstrom|ansi[\s-]*lumen/i.test(tl)) type = 'Projector';
+        else if (/monitor/i.test(tl) && !/signage/i.test(tl)) type = 'Monitor';
+
+        const groupInfo = this.groups.find(g => g.id === group);
+        const color = groupInfo?.color || '#4d49bc';
+        return { name, article, type, group, color, inputs, outputs, inputCables, outputCables };
     },
 
     // Datenblätter im ICT-Format (Kopfzeile "ICT AG | ...", Abschnitte "Signaleingänge"/"Signalausgänge", "Artikelnummer")
@@ -1379,7 +1519,7 @@ const ModalsMixin = {
     // Zuordnung Anschlussbezeichnung im Datenblatt -> Port-Label und Kabeltyp (Reihenfolge = Priorität)
     connectorMap() {
         return [
-            { re: /mini[\s-]*dp|displayport|\bdp\b/i, label: 'DP', cable: 'DP' },
+            { re: /mini[\s-]*dp|display\s*port|\bdp\b/i, label: 'DP', cable: 'DP' },
             { re: /hdmi/i, label: 'HDMI', cable: 'HDMI' },
             { re: /\bsdi\b/i, label: 'SDI', cable: 'SDI' },
             { re: /dvi/i, label: 'DVI', cable: 'DVI' },
@@ -1415,12 +1555,16 @@ const ModalsMixin = {
         const hasDante = /\bdante\b/i.test(flat);
         if (!inCount && !outCount && !hasDante) return null;
 
-        const manufacturers = ['Yamaha', 'Allen & Heath', 'Behringer', 'Midas', 'Soundcraft', 'DiGiCo', 'QSC', 'Shure', 'Sennheiser', 'Bose', 'JBL', 'd&b', 'L-Acoustics', 'Crestron', 'Extron', 'Kramer', 'Barco', 'Christie', 'Epson', 'Panasonic', 'Sony', 'Blackmagic', 'Roland', 'Biamp', 'BSS', 'Lightware', 'Atlona', 'Dell', 'iiyama', 'Samsung', 'LG', 'NEC', 'Sharp'];
         const base = filename.replace(/\.pdf$/i, '').replace(/^DB[_-]/i, '').replace(/[_-](de|en|fr|it)$/i, '');
-        const manufacturer = manufacturers.find(m => new RegExp('\\b' + m.replace(/[&\-]/g, '.') + '\\b', 'i').test(flat + ' ' + base)) || '';
-        const model = lines[0].replace(/\s+/g, ' ').trim();
-        const name = manufacturer && !new RegExp('^' + manufacturer, 'i').test(model) ? `${manufacturer} ${model}` : model;
-        const article = model.split(' ')[0];
+        const manufacturer = this.detectManufacturer(text, base);
+        // Titelzeile: generische Überschriften ("Technical Data Sheet", "Datenblatt", "1 / 5") überspringen,
+        // aus "Digital Mixing Console DM3" nur die Modellkennung (DM3) übernehmen
+        const skipLine = /^(technical\s+)?data\s*sheet|^datenblatt|^technische\s+daten|^\d+\s*\/\s*\d+$|^overview|^spec(ification)?s?$|^produktinformation/i;
+        const titleLine = (lines.find(l => !skipLine.test(l) && l.length <= 60) || lines[0]).replace(/\s+/g, ' ').trim();
+        const tokenInTitle = (titleLine.match(/(?:^|\s)([A-Z]{1,6}-?\d{1,5}[A-Z0-9+/-]*)(?=\s|$)/) || [])[1];
+        const model = this.extractModelName(text, filename) || tokenInTitle || (titleLine.length <= 40 ? titleLine : titleLine.split(' ').slice(0, 3).join(' '));
+        const name = manufacturer && !new RegExp('^' + manufacturer.replace(/[&\-]/g, '.'), 'i').test(model) ? `${manufacturer} ${model}` : model;
+        const article = this.extractArticleNumber(text) || model.split(' ')[0];
 
         const subtitle = (lines[1] || '').toLowerCase();
         let type = 'Gerät';
@@ -1610,37 +1754,23 @@ const ModalsMixin = {
     analyzeGenericDatasheet(text, filename) {
         const textLower = text.toLowerCase();
         
-        let name = '';
-        const modelPatterns = [
-            /model[:\s]+([A-Z0-9][\w\-\.]+)/i,
-            /product[:\s]+([A-Z0-9][\w\-\.]+)/i,
-            /([A-Z]{2,}[\-\s]?[A-Z0-9]{2,}[\-\s]?[A-Z0-9]*)/,
-        ];
-        for (const pattern of modelPatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                name = match[1].trim();
-                break;
+        const manufacturer = this.detectManufacturer(text, filename);
+        let model = this.extractModelName(text, filename);
+        if (!model) {
+            const modelPatterns = [
+                /model[:\s]+([A-Z0-9][\w\-\.]+)/i,
+                /product[:\s]+([A-Z0-9][\w\-\.]+)/i,
+                /([A-Z]{2,}[\-\s]?[A-Z0-9]{2,}[\-\s]?[A-Z0-9]*)/,
+            ];
+            for (const pattern of modelPatterns) {
+                const match = text.match(pattern);
+                if (match) { model = match[1].trim(); break; }
             }
         }
-        if (!name) {
-            name = filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ');
-        }
-        
-        let article = '';
-        const articlePatterns = [
-            /art\.?\s*(?:nr\.?|nummer|#)[:\s]*([A-Z0-9\-]+)/i,
-            /order\s*(?:code|number)[:\s]*([A-Z0-9\-]+)/i,
-            /sku[:\s]*([A-Z0-9\-]+)/i,
-            /p\/n[:\s]*([A-Z0-9\-]+)/i
-        ];
-        for (const pattern of articlePatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                article = match[1].trim();
-                break;
-            }
-        }
+        if (!model) model = filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ');
+        const name = manufacturer && !new RegExp('^' + manufacturer.replace(/[&\-]/g, '.'), 'i').test(model) ? `${manufacturer} ${model}` : model;
+
+        const article = this.extractArticleNumber(text);
         
         let type = '';
         const typeKeywords = {
@@ -1672,10 +1802,17 @@ const ModalsMixin = {
             'moving head': 'Moving Head',
             'led': 'LED Fixture'
         };
+        // Kopfzeilen (Titel/Untertitel) haben Vorrang vor Erwähnungen im Fließtext ("eingebauter Lautsprecher" macht kein Display zum Speaker)
+        const headLower = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 6).join(' ').toLowerCase();
         for (const [keyword, typeValue] of Object.entries(typeKeywords)) {
-            if (textLower.includes(keyword)) {
-                type = typeValue;
-                break;
+            if (headLower.includes(keyword)) { type = typeValue; break; }
+        }
+        if (!type) {
+            for (const [keyword, typeValue] of Object.entries(typeKeywords)) {
+                if (textLower.includes(keyword)) {
+                    type = typeValue;
+                    break;
+                }
             }
         }
         

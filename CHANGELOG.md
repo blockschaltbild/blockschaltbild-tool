@@ -3,6 +3,26 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.16.4 – 2026-09-07
+
+- Website-Import: Warteanzeige übernommen vom Datenblatt-Import – das Import-Fenster öffnet sich sofort mit Spinner und Statustext („Schritt 1/3: Lese Produktseite…“, „Schritt 3/3: Lese Quelle 2/3 (host)…“). Der bisherige Fortschrittsbalken im Adress-Formular entfällt.
+- Schlägt das Auslesen fehl, kehrt das Tool zum Adress-Formular zurück und zeigt dort wie bisher den Fehlerhinweis und das Einfügefeld für den Seitentext.
+
+## Version 1.16.3 – 2026-09-07
+
+- Datenblatt-Import (PDF): Neuer Parser für Display-/Signage-Datenblätter (z. B. Samsung QM85N) mit Tabellenzeilen „Eingang RGB/Video/Audio …“, „Ausgang …“, „LAN Ja“. Erkennt DVI, DisplayPort („Display Port“), 2x HDMI, Klinke sowie LAN; USB/RS232/IR werden wie bisher nicht als Signalanschlüsse übernommen.
+- Gerätename und Hersteller sauberer: Hersteller aus Kopfzeilen, Dateiname, „Hersteller/Lieferant: …“ oder Firmierung (Liste um Samsung, LG, NEC, Philips, BenQ, Logitech u. a. erweitert). Modellkennung aus „Artikelname/Modell/Modellnummer …“, dem Dateinamen (Datenblatt_QM85N → QM85N) oder der Titelzeile („Digital Mixing Console DM3“ → DM3); generische Überschriften („Technical Data Sheet“, „Datenblatt“, Seitenzahlen) werden übersprungen. Ergebnis z. B. „Samsung QM85N“ statt „SMART“, „Yamaha DM3“ statt „Yamaha Technical Data Sheet“.
+- Artikelnummer auch aus „Artikelnummer LH85QMNEBGC/EN“, „Bestellnummer“, „Part No.“ usw.
+- Typerkennung: Kopfzeilen haben Vorrang vor Fließtext („eingebauter Lautsprecher“ macht ein Display nicht mehr zum Speaker).
+- PDF-Text wird jetzt mit Zeilenumbrüchen ausgelesen (pdf.js hasEOL/Y-Position), damit Tabellenzeilen erkennbar bleiben.
+- Websuche beim PDF-Import: Trefferliste des Reader-Dienstes wird korrekt ausgewertet (URL und Snippet in einer Zeile); ist der Vermittler nicht erreichbar, wird der Reader-Dienst direkt genutzt. Reine Schlüsselwort-Schätzungen aus Webseiten (Standard-Portanzahl) werden nicht mehr in Datenblatt-Ergebnisse gemischt. Fenstertitel unterscheidet „ergänzt aus Web: …“ (Daten übernommen) und „per Websuche geprüft: …“ (nichts zu ergänzen).
+- Kabeltypen-Standardliste um DVI und VGA erweitert (gilt für neue Bibliotheken; bestehende Listen lassen sich in der Kabelverwaltung ergänzen).
+
+## Version 1.16.2 – 2026-09-07
+
+- Datenblatt-Import (PDF): Jedes Datenblatt wird jetzt immer per Websuche geprüft – nicht mehr nur bei fehlenden Angaben. Ausnahme: ICT-Datenblätter (Kopfzeile „ICT AG | ...", Abschnitte Signaleingänge/-ausgänge) werden ohne Websuche übernommen.
+- Dabei gilt das gleiche Prinzip wie beim Website-Import: bis zu drei passende Quellen (Modellnummer muss vorkommen, Hersteller bevorzugt, Shops/Videoportale ausgeschlossen) werden ausgelesen und alle relevanten Treffer zusammengeführt. Die Datenblatt-Angaben haben Vorrang, die Webquellen füllen Lücken nach Vollständigkeit. Fortschritt (Quelle 1/3 ...) erscheint im Statustext, genutzte Quellen im Fenstertitel.
+
 ## Version 1.16.1 – 2026-09-07
 
 - Datenblatt-Import (PDF): Fehlen nach der Analyse Angaben (Typ, Ein-/Ausgänge) oder bleibt der Typ unbestimmt, ergänzt das Tool automatisch per Websuche (gleicher Mechanismus wie beim Website-Import) und führt beide Ergebnisse zusammen – die Datenblatt-Angaben haben dabei Vorrang, die Websuche füllt nur Lücken. Genutzte Quellen erscheinen im Fenstertitel.
