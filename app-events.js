@@ -31,7 +31,18 @@ const EventsMixin = {
         });
         document.getElementById('btnRestoreAutosave').addEventListener('click', () => this.restoreAutosave());
         
-        document.getElementById('btnImportDevices').addEventListener('click', () => document.getElementById('fileImportDevices').click());
+        document.getElementById('btnImportDevices').addEventListener('click', () => this.showImportChoiceModal());
+        document.getElementById('btnImportChoiceFile').addEventListener('click', () => {
+            this.hideImportChoiceModal();
+            document.getElementById('fileImportDevices').click();
+        });
+        document.getElementById('btnImportChoiceUrl').addEventListener('click', () => this.showImportUrlForm());
+        document.getElementById('importUrlForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.importWebsiteDevice(document.getElementById('importUrlInput').value.trim());
+        });
+        document.getElementById('btnCancelImportChoice').addEventListener('click', () => this.hideImportChoiceModal());
+        document.getElementById('btnCloseImportChoice').addEventListener('click', () => this.hideImportChoiceModal());
         document.getElementById('fileImportDevices').addEventListener('change', (e) => this.importDevices(e));
         document.getElementById('btnAddDevice').addEventListener('click', () => this.showDeviceModal());
         document.getElementById('btnAddPlaceholder').addEventListener('click', () => this.addPlaceholderDevice());

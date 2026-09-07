@@ -454,7 +454,7 @@ class BlockDiagramEditor {
 
 
     defaultCableTypes() {
-        return ['XLR', 'Klinke', 'Cinch', 'HDMI', 'SDI', 'DisplayPort', 'Cat5/6', 'Speakon', 'Powercon', 'DMX', 'Dante', 'AES/EBU', 'SPDIF', 'USB', 'Coax', 'Glasfaser', 'Glasfaser LC/LC'];
+        return ['XLR', 'Klinke', 'Cinch', 'HDMI', 'SDI', 'DP', 'Cat5/6', 'Speakon', 'Powercon', 'DMX', 'Dante', 'AES/EBU', 'SPDIF', 'USB', 'Coax', 'Glasfaser', 'Glasfaser LC/LC'];
     }
 
 

@@ -999,7 +999,59 @@ const ModalsMixin = {
         e.target.value = '';
     },
 
+    showImportChoiceModal() {
+        document.getElementById('importUrlForm').style.display = 'none';
+        document.getElementById('importChoiceCancelRow').style.display = '';
+        document.getElementById('importChoiceModal').classList.add('active');
+    },
+
+    hideImportChoiceModal() {
+        document.getElementById('importChoiceModal').classList.remove('active');
+    },
+
+    showImportUrlForm() {
+        document.getElementById('importUrlForm').style.display = 'block';
+        document.getElementById('importChoiceCancelRow').style.display = 'none';
+        const input = document.getElementById('importUrlInput');
+        input.focus();
+        input.select();
+    },
+
+    // Produktseite über den Vermittler (Cloudflare Worker, Endpoint /fetch) auslesen und als Gerät vorschlagen
+    async importWebsiteDevice(url) {
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        const endpoint = (typeof BUG_REPORT_CONFIG !== 'undefined' && BUG_REPORT_CONFIG.endpoint) || '';
+        if (!endpoint) {
+            alert('Kein Vermittler konfiguriert (bugreport-config.js). Website-Import ist nicht möglich.');
+            return;
+        }
+        this.hideImportChoiceModal();
+        document.getElementById('pdfImportTitle').textContent = 'Gerät aus Website importieren';
+        document.getElementById('pdfImportModal').classList.add('active');
+        document.getElementById('pdfAnalysisStatus').style.display = 'block';
+        document.getElementById('pdfAnalysisStatus').querySelector('p').textContent = 'Lese Produktseite...';
+        document.getElementById('pdfDeviceForm').style.display = 'none';
+
+        try {
+            const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(url)}`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
+            const deviceInfo = this.analyzeWebsiteText(data.text || '', data.title || '', data.url || url)
+                || this.analyzeGenericDatasheet(data.text || '', (data.title || url) + '.pdf');
+            if (!deviceInfo.name) deviceInfo.name = data.title || '';
+            deviceInfo.article = '';
+            this.showPdfDeviceForm(deviceInfo);
+        } catch (err) {
+            console.error('Website-Import Fehler:', err);
+            alert('Website konnte nicht ausgelesen werden: ' + err.message);
+            this.hidePdfImportModal();
+        }
+    },
+
     async importPdfDatasheet(file) {
+        document.getElementById('pdfImportTitle').textContent = 'Gerät aus Datenblatt importieren';
+        document.getElementById('pdfAnalysisStatus').querySelector('p').textContent = 'Analysiere Datenblatt...';
         document.getElementById('pdfImportModal').classList.add('active');
         document.getElementById('pdfAnalysisStatus').style.display = 'block';
         document.getElementById('pdfDeviceForm').style.display = 'none';
@@ -1027,6 +1079,309 @@ const ModalsMixin = {
     },
 
     analyzeDatasheet(text, filename) {
+        const ict = this.analyzeIctDatasheet(text);
+        if (ict) return ict;
+        const manufacturer = this.analyzeManufacturerDatasheet(text, filename);
+        if (manufacturer) return manufacturer;
+        return this.analyzeGenericDatasheet(text, filename);
+    },
+
+    // Datenblätter im ICT-Format (Kopfzeile "ICT AG | ...", Abschnitte "Signaleingänge"/"Signalausgänge", "Artikelnummer")
+    analyzeIctDatasheet(text) {
+        const hasHeader = /ICT AG\s*\|/i.test(text);
+        const hasSignals = /signaleing[äa]nge|signalausg[äa]nge/i.test(text);
+        if (!hasHeader && !hasSignals) return null;
+
+        // Gerätename: Zeile nach der ICT-Kopfzeile bzw. erste Zeile, vor "SYSTEMEIGENSCHAFTEN"/"KEY FEATURES"
+        let name = '';
+        const flat = text.replace(/\s+/g, ' ').trim();
+        const nameMatch = flat.match(/ICT AG\s*\|.*?ict\.de\s+(.+?)\s+(?:SYSTEMEIGENSCHAFTEN|KEY FEATURES)/i)
+            || flat.match(/^(.+?)\s+(?:SYSTEMEIGENSCHAFTEN|KEY FEATURES)/i);
+        if (nameMatch) name = nameMatch[1];
+        else name = text.split(/\r?\n/).map(l => l.trim()).find(l => l && !/^ICT AG\s*\|/i.test(l)) || '';
+        name = name.replace(/\s+/g, ' ').trim();
+        name = name.split(' ').map(w => /^[A-Z]{2,}$/.test(w) ? w.charAt(0) + w.slice(1).toLowerCase() : w).join(' ');
+
+        let article = '';
+        const artMatch = flat.match(/artikelnummer[\s:]{1,40}?\b(\d{5,})\b/i) || flat.match(/artikelnummer\s+artikelnummer\s+([A-Z0-9][A-Z0-9\-\.\/]*)/i);
+        if (artMatch) article = artMatch[1].trim();
+
+        // Abschnittswert bis zum nächsten bekannten Label (funktioniert auch ohne Zeilenumbrüche, wie bei pdf.js)
+        const stopLabels = 'Bedienung\\/Konfiguration|Signalausg[äa]nge|Signaleing[äa]nge|Integrierte Lautsprecher|Audio\\s+(?:Integrierte|Artikelnummer)|Artikelnummer|Netzwerk|Steuerung|KEY FEATURES';
+        const sectionValue = (label) => {
+            const re = new RegExp(label + '\\s+([\\s\\S]*?)\\s*(?=' + stopLabels + '|$)', 'i');
+            const m = flat.match(re);
+            return m ? m[1].trim() : '';
+        };
+        const inputsRaw = sectionValue('Signaleing[äa]nge');
+        const outputsRaw = sectionValue('Signalausg[äa]nge');
+
+        const controlRaw = sectionValue('Bedienung\\/Konfiguration');
+
+        const inputs = [], outputs = [], inputCables = [], outputCables = [];
+        const parsed = this.parseIctConnectorList(inputsRaw, 'IN');
+        parsed.forEach(p => { inputs.push(p.name); inputCables.push(p.cable); });
+        this.parseIctConnectorList(outputsRaw, 'OUT').forEach(p => { outputs.push(p.name); outputCables.push(p.cable); });
+        // RJ45/LAN-Schnittstelle ist immer relevant (Steuerung/Netzwerk) – auch bei Tippfehlern wie "RJ52"
+        if (/rj\s*-?\d{2}|ethernet|\blan\b|netzwerk/i.test(controlRaw)) {
+            inputs.push('LAN');
+            inputCables.push(this.matchCableType('Cat5/6'));
+        }
+
+        let type = 'Gerät';
+        let group = 'video';
+        const tl = text.toLowerCase();
+        const isDisplay = /bildschirmdiagonale|native bildaufl[öo]sung|display\s*\n/i.test(text);
+        if (isDisplay && /touch/i.test(text)) type = 'Touchdisplay';
+        else if (isDisplay) type = 'Monitor';
+        else if (tl.includes('projektor') || tl.includes('projector') || tl.includes('lichtstrom')) type = 'Projector';
+        else if (tl.includes('kamera') || tl.includes('camera')) type = 'Camera';
+        else if (tl.includes('lautsprecher') && !/integrierte lautsprecher\s+-/i.test(text)) { type = 'Speaker'; group = 'audio'; }
+        else if (tl.includes('verstärker') || tl.includes('endstufe')) { type = 'Amplifier'; group = 'audio'; }
+        else if (tl.includes('mikrofon')) { type = 'Microphone'; group = 'audio'; }
+        else if (tl.includes('switch') || tl.includes('matrix')) type = 'Switch';
+        else if (tl.includes('konverter') || tl.includes('converter')) type = 'Converter';
+
+        const groupInfo = this.groups.find(g => g.id === group);
+        const color = groupInfo?.color || '#4d49bc';
+        return { name, article, type, group, color, inputs, outputs, inputCables, outputCables };
+    },
+
+    // Liefert den im System angelegten Kabeltyp, der zum erkannten Anschluss passt (z. B. 'DP' für DisplayPort/mini-DP)
+    matchCableType(preferred) {
+        const list = this.cableTypes || [];
+        if (list.includes(preferred)) return preferred;
+        const norm = typeof this.normalizeSignal === 'function' ? this.normalizeSignal.bind(this) : (s) => String(s).toUpperCase();
+        const target = norm(preferred);
+        const hit = target ? list.find(t => norm(t) === target) : null;
+        return hit || preferred;
+    },
+
+    // "2x DP(1x mini-DP), 2x HDMI, Hub (3x USB A 3.0)" -> [{name:'DP IN 1', cable:'DP'}, ...]
+    // Regeln: Klammerzusätze (mini-DP, MST, 3,5mm) werden ignoriert, USB/Hub/Netzwerk/Steuerung zählen nicht als Signalanschluss.
+    parseIctConnectorList(raw, dir) {
+        if (!raw || raw === '-') return [];
+        const cleaned = raw.replace(/\([^)]*\)/g, ' ');
+        const parts = cleaned.split(/[,;]/).map(p => p.trim()).filter(Boolean);
+        const map = this.connectorMap();
+        const result = [];
+        for (const part of parts) {
+            if (/usb|hub|rs-?232|ir\b|steuer/i.test(part)) continue;
+            const entry = map.find(m => m.re.test(part));
+            if (!entry) continue;
+            const countMatch = part.match(/(\d+)\s*x/i);
+            const count = countMatch ? Math.min(parseInt(countMatch[1]), 16) : 1;
+            for (let i = 1; i <= count; i++) {
+                result.push({ name: count > 1 ? `${entry.label} ${dir} ${i}` : `${entry.label} ${dir}`, cable: this.matchCableType(entry.cable) });
+            }
+        }
+        return result;
+    },
+
+    // Zuordnung Anschlussbezeichnung im Datenblatt -> Port-Label und Kabeltyp (Reihenfolge = Priorität)
+    connectorMap() {
+        return [
+            { re: /mini[\s-]*dp|displayport|\bdp\b/i, label: 'DP', cable: 'DP' },
+            { re: /hdmi/i, label: 'HDMI', cable: 'HDMI' },
+            { re: /\bsdi\b/i, label: 'SDI', cable: 'SDI' },
+            { re: /dvi/i, label: 'DVI', cable: 'DVI' },
+            { re: /vga/i, label: 'VGA', cable: 'VGA' },
+            { re: /\bxlr\b/i, label: 'XLR', cable: 'XLR' },
+            { re: /dante/i, label: 'Dante', cable: 'Cat5/6' },
+            { re: /aes/i, label: 'AES', cable: 'AES/EBU' },
+            { re: /s\/?pdif|toslink/i, label: 'SPDIF', cable: 'SPDIF' },
+            { re: /cinch|rca/i, label: 'Cinch', cable: 'Cinch' },
+            { re: /\btrs\b|analog\s*audio|klinke|3,5\s*mm|6,3\s*mm|line/i, label: 'Audio', cable: 'Klinke' },
+            { re: /glasfaser|fiber|lc\/lc/i, label: 'LC/LC', cable: 'Glasfaser LC/LC' },
+            { re: /rj45|ethernet|lan|hdbaset|cat\s*\d/i, label: 'LAN', cable: 'Cat5/6' },
+            { re: /\bdmx\b/i, label: 'DMX', cable: 'DMX' },
+            { re: /speakon|\bnl[248]\b/i, label: 'SP', cable: 'Speakon' }
+        ];
+    },
+
+    // Hersteller-Datenblätter (englisch, z. B. Yamaha "Technical Data Sheet"):
+    // Titel = Modell, Untertitel = Gerätetyp, Ports aus Mustern wie "16 Mic/Line (12 XLR + ...) inputs, and 8 (XLR) outputs".
+    // Regeln: alle Kanäle einzeln anlegen, generische Namen (XLR IN 1 …), Dante Primary/Secondary beidseitig (Cat5/6),
+    // RJ45/Ethernet immer als LAN-Port, USB/Phones/Kopfhörer ignorieren.
+    analyzeManufacturerDatasheet(text, filename) {
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (!lines.length) return null;
+        const flat = text.replace(/\s+/g, ' ');
+
+        const inCount = flat.match(/(\d{1,2})\s*(?:mic\/line|mic|line|analog)?[^,.;()]*?\(([^)]*)\)\s*inputs?\b/i)
+            || flat.match(/analog\s+inputs?\s+(\d{1,2})\s*[^()]*?\(([^)]*)\)/i)
+            || flat.match(/(\d{1,2})\s*x?\s*(xlr|trs|combo)[^,.;]*?inputs?/i);
+        const outCount = flat.match(/(\d{1,2})\s*\(([^)]*)\)\s*outputs?\b/i)
+            || flat.match(/analog\s+outputs?\s+(\d{1,2})\s*\(([^)]*)\)/i)
+            || flat.match(/(\d{1,2})\s*x?\s*(xlr|trs|combo)[^,.;]*?outputs?/i);
+        const hasDante = /\bdante\b/i.test(flat);
+        if (!inCount && !outCount && !hasDante) return null;
+
+        const manufacturers = ['Yamaha', 'Allen & Heath', 'Behringer', 'Midas', 'Soundcraft', 'DiGiCo', 'QSC', 'Shure', 'Sennheiser', 'Bose', 'JBL', 'd&b', 'L-Acoustics', 'Crestron', 'Extron', 'Kramer', 'Barco', 'Christie', 'Epson', 'Panasonic', 'Sony', 'Blackmagic', 'Roland', 'Biamp', 'BSS', 'Lightware', 'Atlona', 'Dell', 'iiyama', 'Samsung', 'LG', 'NEC', 'Sharp'];
+        const base = filename.replace(/\.pdf$/i, '').replace(/^DB[_-]/i, '').replace(/[_-](de|en|fr|it)$/i, '');
+        const manufacturer = manufacturers.find(m => new RegExp('\\b' + m.replace(/[&\-]/g, '.') + '\\b', 'i').test(flat + ' ' + base)) || '';
+        const model = lines[0].replace(/\s+/g, ' ').trim();
+        const name = manufacturer && !new RegExp('^' + manufacturer, 'i').test(model) ? `${manufacturer} ${model}` : model;
+        const article = model.split(' ')[0];
+
+        const subtitle = (lines[1] || '').toLowerCase();
+        let type = 'Gerät';
+        let group = 'other';
+        const typeMap = [
+            { re: /digital.*(mixing console|mixer)/, type: 'Digital Mixer', group: 'audio' },
+            { re: /mixing console|mixer|mischpult/, type: 'Mixer', group: 'audio' },
+            { re: /power amplifier|amplifier|endstufe/, type: 'Amplifier', group: 'audio' },
+            { re: /loudspeaker|speaker|lautsprecher/, type: 'Speaker', group: 'audio' },
+            { re: /microphone|mikrofon/, type: 'Microphone', group: 'audio' },
+            { re: /dsp|signal processor|audio processor/, type: 'DSP', group: 'audio' },
+            { re: /projector|projektor/, type: 'Projector', group: 'video' },
+            { re: /camera|kamera/, type: 'Camera', group: 'video' },
+            { re: /touch/, type: 'Touchdisplay', group: 'video' },
+            { re: /display|monitor/, type: 'Monitor', group: 'video' },
+            { re: /matrix|switcher|switch/, type: 'Switch', group: 'video' },
+            { re: /control processor|controller|control system/, type: 'Control Processor', group: 'control' }
+        ];
+        const hit = typeMap.find(t => t.re.test(subtitle)) || typeMap.find(t => t.re.test(flat.toLowerCase()));
+        if (hit) { type = hit.type; group = hit.group; }
+
+        const map = this.connectorMap();
+        const connectorFor = (desc) => map.find(m => m.re.test(desc || '')) || map.find(m => m.label === 'XLR');
+        const inputs = [], outputs = [], inputCables = [], outputCables = [];
+        if (inCount) {
+            const entry = connectorFor(inCount[2]);
+            const n = Math.min(parseInt(inCount[1]), 64);
+            for (let i = 1; i <= n; i++) { inputs.push(`${entry.label} IN ${i}`); inputCables.push(this.matchCableType(entry.cable)); }
+        }
+        if (outCount) {
+            const entry = connectorFor(outCount[2]);
+            const n = Math.min(parseInt(outCount[1]), 64);
+            for (let i = 1; i <= n; i++) { outputs.push(`${entry.label} OUT ${i}`); outputCables.push(this.matchCableType(entry.cable)); }
+        }
+        if (hasDante) {
+            const cat = this.matchCableType('Cat5/6');
+            const secondary = /primary\s*\/\s*secondary|secondary/i.test(flat);
+            ['Dante Primary', ...(secondary ? ['Dante Secondary'] : [])].forEach(p => {
+                inputs.push(p); inputCables.push(cat);
+                outputs.push(p); outputCables.push(cat);
+            });
+        }
+        if (/ethernet\s+yes|rj-?45|\bethernet\b|\bnetwork\s+port\b/i.test(flat)) {
+            inputs.push('LAN'); inputCables.push(this.matchCableType('Cat5/6'));
+        }
+
+        const groupInfo = this.groups.find(g => g.id === group);
+        const color = groupInfo?.color || '#4d49bc';
+        return { name, article, type, group, color, inputs, outputs, inputCables, outputCables };
+    },
+
+    // Produktseiten von Händlern/Herstellern (z. B. rockshop.de): Text kommt vom Vermittler (/fetch).
+    // Regeln: Name aus Seitentitel, Typ aus Kurzbeschreibung, Ports aus "Analoge E/A: 32 Eingänge / 16 Ausgänge",
+    // "AES/EBU: 2 Eingänge / 2 Ausgänge", "Dante: …" -> Dante Primary/Secondary beidseitig (Cat5/6).
+    // Analoge Anschlüsse ohne Steckerangabe -> XLR. LAN immer. USB, Phones, Steckplätze ignorieren. Keine Artikelnummer.
+    analyzeWebsiteText(text, pageTitle, url) {
+        // Zubehör-/Empfehlungsblöcke am Seitenende ausblenden (enthalten Daten anderer Geräte)
+        const cut = text.search(/\n\s*(Zubehör|Passendes Zubehör|Ähnliche Artikel|Kunden kauften auch|Das könnte Sie auch interessieren)\s*\n/i);
+        if (cut > 0 && cut > text.length * 0.4) text = text.slice(0, cut);
+        const flat = text.replace(/\s+/g, ' ');
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+        let name = (pageTitle || lines[0] || '').split(/\s[|–-]\s/)[0].trim();
+        name = name.replace(/\b(kaufen|online|günstig|bestellen|shop|preisvergleich|test)\b.*$/i, '').trim();
+        if (!name && url) name = url.replace(/^https?:\/\/[^/]+\//, '').replace(/[-_/]+/g, ' ').trim();
+        name = name.replace(/\b(digital(?:es|er)?\s*(?:mischpult|mixer|mixing console)?|mixing console|mischpult|monitor|display|lautsprecher|verstärker|endstufe|projektor|beamer|kamera|konverter|converter|up-?\/?down)\b.*$/i, '').replace(/[\s\/|,-]+$/, '').trim();
+
+        const pairs = (label) => {
+            const m = flat.match(new RegExp(label + '\\s*:?\\s*(\\d{1,3})\\s*(?:Eing[äa]nge?|inputs?|in)\\b\\s*(?:\\/|,|und|and|\\+)\\s*(\\d{1,3})\\s*(?:Ausg[äa]nge?|outputs?|out)\\b', 'i'));
+            return m ? { inputs: parseInt(m[1]), outputs: parseInt(m[2]) } : null;
+        };
+        const analog = pairs('Analoge?\\s*(?:E\\/A|I\\/O|Ein-?\\s*(?:\\/|und)\\s*Ausg[äa]nge)?')
+            || pairs('Lokale?\\s*(?:E\\/A|I\\/O)')
+            || pairs('Local\\s*I\\/O');
+        const aes = pairs('AES\\/EBU');
+        // Dante nur, wenn eingebaut – nicht bei optionaler Karte ("Audio Networking Card Dante oder Waves", "Dante-Optionskarte")
+        const danteMentions = flat.match(/[^.;\n]{0,80}\bdante\b[^.;\n]{0,80}/gi) || [];
+        const hasDante = danteMentions.some(m => !/karte|card|optional|oder waves|erweiterung|option|kompatib|bereit|ready/i.test(m) && /dante\s*[:(]|\d+\s*x\s*\d+|eingebaut|integriert|built-?in|onboard|mit dante ausgestattet|dante\s*(primary|secondary|port|anschl)/i.test(m));
+        const micIns = flat.match(/(?:Mikrofoneing[äa]nge|Mic(?:rophone)?\s*inputs?)\s*:?\s*(\d{1,3})\b/i)
+            || flat.match(/(\d{1,3})\s*(?:eingebaute\s+)?(?:Mic|Mikrofon)[\s-]*Preamps?/i);
+        const lineOuts = flat.match(/(?:Line\s*Outs?|Analoge?\s*Ausg[äa]nge|Analog\s*outputs?)\s*:?\s*(\d{1,3})\b/i)
+            || flat.match(/(\d{1,3})\s*x?\s*XLR\s*(?:Line\s*)?(?:Outputs?|Ausg[äa]nge)/i);
+        const aesOutOnly = !aes && /AES(?:\/EBU)?[\s-]*(?:Ausgang|Output|Out)\b/i.test(flat);
+
+        // Video-Konverter/-Geräte: Blöcke "INPUTS | 1x HDMI / 1x (12G…)-SDI", "OUTPUTS | 1 x HDMI Type A / 2 x SDI" oder "Inputs: HDMI, SDI"
+        const videoBlock = (label) => {
+            const m = text.match(new RegExp('(?:^|\\n)\\s*' + label + '\\s*[:|]\\s*([^\\n]*(?:\\n(?!\\s*(?:INPUTS?|OUTPUTS?|Eing[äa]nge|Ausg[äa]nge|Anschlu|MENU|Power|Standards|LCD)\\b)[^\\n]*){0,4})', 'i'));
+            return m ? m[1] : '';
+        };
+        const vIn = videoBlock('(?:INPUTS?|Eing[äa]nge)'), vOut = videoBlock('(?:OUTPUTS?|Ausg[äa]nge)');
+        const isVideo = /\b(sdi|hdmi|displayport|dvi|vga)\b/i.test(vIn + ' ' + vOut);
+        if (!analog && !aes && !hasDante && !micIns && !isVideo) return null;
+
+        const cat = this.matchCableType('Cat5/6');
+        const xlr = this.matchCableType('XLR');
+        const aesCable = this.matchCableType('AES/EBU');
+        const inputs = [], outputs = [], inputCables = [], outputCables = [];
+        if (isVideo) {
+            const parseVideo = (block, dir) => {
+                const items = block.split(/\n|,|\//).map(s => s.replace(/\([^)]*\)/g, '').trim()).filter(Boolean);
+                const res = [];
+                for (const it of items) {
+                    if (/genlock|ref|loop|audio|usb|lcd|button|power|dc\b/i.test(it) && !/sdi|hdmi/i.test(it)) continue;
+                    const entry = this.connectorMap().find(m => m.re.test(it));
+                    if (!entry) continue;
+                    const cnt = it.match(/(\d+)\s*x/i);
+                    res.push({ entry, count: cnt ? Math.min(parseInt(cnt[1]), 16) : 1 });
+                }
+                const totals = {};
+                res.forEach(r => totals[r.entry.label] = (totals[r.entry.label] || 0) + r.count);
+                const counters = {};
+                res.forEach(r => {
+                    for (let i = 0; i < r.count; i++) {
+                        counters[r.entry.label] = (counters[r.entry.label] || 0) + 1;
+                        const nm = totals[r.entry.label] > 1 ? `${r.entry.label} ${dir} ${counters[r.entry.label]}` : `${r.entry.label} ${dir}`;
+                        if (dir === 'IN') { inputs.push(nm); inputCables.push(this.matchCableType(r.entry.cable)); }
+                        else { outputs.push(nm); outputCables.push(this.matchCableType(r.entry.cable)); }
+                    }
+                });
+            };
+            parseVideo(vIn, 'IN');
+            parseVideo(vOut, 'OUT');
+        }
+        const inN = Math.min(analog ? analog.inputs : (micIns ? parseInt(micIns[1]) : 0), 64);
+        const outN = Math.min(analog ? analog.outputs : (lineOuts ? parseInt(lineOuts[1]) : 0), 64);
+        for (let i = 1; i <= inN; i++) { inputs.push(`XLR IN ${i}`); inputCables.push(xlr); }
+        for (let i = 1; i <= outN; i++) { outputs.push(`XLR OUT ${i}`); outputCables.push(xlr); }
+        if (aes) {
+            for (let i = 1; i <= Math.min(aes.inputs, 16); i++) { inputs.push(aes.inputs > 1 ? `AES IN ${i}` : 'AES IN'); inputCables.push(aesCable); }
+            for (let i = 1; i <= Math.min(aes.outputs, 16); i++) { outputs.push(aes.outputs > 1 ? `AES OUT ${i}` : 'AES OUT'); outputCables.push(aesCable); }
+        } else if (aesOutOnly) {
+            outputs.push('AES OUT'); outputCables.push(aesCable);
+        }
+        if (hasDante) {
+            ['Dante Primary', 'Dante Secondary'].forEach(p => {
+                inputs.push(p); inputCables.push(cat);
+                outputs.push(p); outputCables.push(cat);
+            });
+        }
+        inputs.push('LAN'); inputCables.push(cat);
+
+        const tl = flat.toLowerCase();
+        let type = 'Gerät', group = isVideo ? 'video' : 'audio';
+        if (isVideo && /konverter|converter|cross/.test(tl)) type = 'Converter';
+        else if (isVideo && /kreuzschiene|matrix|switcher|umschalter/.test(tl)) type = 'Switch';
+        else if (isVideo) type = 'Video';
+        else if (/digital(?:es|er)?\s*(?:mischpult|mixer|mixing console)/.test(tl)) type = 'Digital Mixer';
+        else if (/mischpult|mixer|mixing console/.test(tl)) type = 'Mixer';
+        else if (/endstufe|verstärker|amplifier/.test(tl)) type = 'Amplifier';
+        else if (/lautsprecher|loudspeaker|speaker/.test(tl)) type = 'Speaker';
+        else if (/\bdsp\b|signalprozessor|audio processor/.test(tl)) type = 'DSP';
+        else if (/mikrofon|microphone/.test(tl)) type = 'Microphone';
+
+        const groupInfo = this.groups.find(g => g.id === group);
+        const color = groupInfo?.color || '#4d49bc';
+        return { name, article: '', type, group, color, inputs, outputs, inputCables, outputCables };
+    },
+
+    analyzeGenericDatasheet(text, filename) {
         const textLower = text.toLowerCase();
         
         let name = '';
@@ -1186,8 +1541,8 @@ const ModalsMixin = {
         document.getElementById('pdfInputsList').innerHTML = '';
         document.getElementById('pdfOutputsList').innerHTML = '';
         
-        deviceInfo.inputs.forEach(name => this.addIOField('input', 'pdfInputsList', name));
-        deviceInfo.outputs.forEach(name => this.addIOField('output', 'pdfOutputsList', name));
+        deviceInfo.inputs.forEach((name, i) => this.addIOField('input', 'pdfInputsList', name, deviceInfo.inputCables?.[i] || ''));
+        deviceInfo.outputs.forEach((name, i) => this.addIOField('output', 'pdfOutputsList', name, deviceInfo.outputCables?.[i] || ''));
         
         if (deviceInfo.inputs.length === 0) this.addIOField('input', 'pdfInputsList');
         if (deviceInfo.outputs.length === 0) this.addIOField('output', 'pdfOutputsList');

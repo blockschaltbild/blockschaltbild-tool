@@ -3,6 +3,32 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.14 – 2026-09-07
+
+### Geräte-Import per Website-Adresse (neu)
+- „Geräte importieren" öffnet jetzt eine Auswahl: **Datei hochladen** (PDF/Excel/TXT) oder **Website-Adresse angeben**
+- Produktseiten (z. B. rockshop.de) werden über den Vermittler (Cloudflare Worker, neuer Endpoint `GET /fetch?url=…`) als Text ausgelesen und mit `analyzeWebsiteText` interpretiert: Name aus Seitentitel, Typ aus Beschreibung, Ports aus „Analoge E/A: 32 Eingänge / 16 Ausgänge", „AES/EBU: …", „Dante: …"
+- Regeln für Website-Import: analoge Anschlüsse ohne Steckerangabe → XLR; Dante → Dante Primary/Secondary beidseitig (Cat5/6); LAN-Port immer; USB, Phones, Steckplätze ignoriert; **keine Artikelnummer** (Händlernummern werden nicht übernommen)
+- Vermittler: Website-Abruf nur http/https, private/lokale Adressen werden abgewiesen; CORS auf GET erweitert; Browser-User-Agent (thomann.de blockiert dennoch mit 403)
+- Website-Parser: Video-Geräte („Inputs: HDMI, SDI" / „INPUTS | 1x HDMI …" → Converter/Switch, Gruppe Video), „Mic-Preamps" als Eingänge, „AES Ausgang", Dante nur bei eingebauter Schnittstelle (optionale Karten ignoriert), Zubehör-Abschnitte ausgeblendet
+- Standardbibliothek: „Yamaha DM7" (Digital Mixer, 32 XLR IN / 16 XLR OUT, 2× AES, Dante P/S, LAN) ergänzt
+
+### PDF-Datenblatt-Import (ICT-Datenblätter)
+- Neuer Parser für ICT-Datenblätter (`analyzeIctDatasheet`): Gerätename aus der Titelzeile, Artikelnummer aus „Artikelnummer", Ein-/Ausgänge aus „Signaleingänge"/„Signalausgänge"
+- Anschlusslisten wie „2x DP(1x mini-DP), 2x HDMI" werden in einzelne Ports mit Kabeltyp umgesetzt (DP IN 1, DP IN 2, HDMI IN 1, …); Klammerzusätze (mini-DP, MST, 3,5mm) werden ignoriert, USB/Hub zählen nicht als Signalanschluss
+- Typ „Monitor" wird über Display-Merkmale erkannt; „Integrierte Lautsprecher: -" führt nicht mehr zu Typ „Speaker"/Gruppe „Audio"
+- Erkannte Kabeltypen werden im Import-Formular vorbelegt
+- Standardbibliothek: „Dell U2414H" (Monitor, Art. 1012229) und „iiyama ProLite TE8668MIS-B1AG" (Touchdisplay, Art. 1017366) ergänzt
+- Kabeltyp für DisplayPort-Anschlüsse heißt jetzt einheitlich „DP" (Standard-Kabeltypen, Vorlagen, PDF-Import); der Import gleicht erkannte Kabeltypen mit den im System angelegten ab (z. B. „DisplayPort" in bestehenden Bibliotheken)
+- Displays mit Touch-Merkmal erhalten den Typ „Touchdisplay"; SPDIF-Anschlüsse werden erkannt
+- RJ45/Ethernet-Schnittstellen werden immer als Port „LAN" (Cat5/6) übernommen – bei ICT-Datenblättern aus „Bedienung/Konfiguration" (tolerant gegenüber Tippfehlern wie „RJ52")
+
+### PDF-Datenblatt-Import (Hersteller-Datenblätter)
+- Neuer Parser `analyzeManufacturerDatasheet` für englische Hersteller-Datenblätter (z. B. Yamaha Technical Data Sheet): Modell aus Titelzeile, Hersteller aus Text/Dateiname, Typ aus Untertitel („Digital Mixing Console" → Digital Mixer)
+- Ein-/Ausgänge aus Mustern wie „16 Mic/Line (12 XLR + …) inputs, and 8 (XLR) outputs"; alle Kanäle werden einzeln mit generischen Namen angelegt (XLR IN 1 …, XLR OUT 1 …)
+- Dante wird als „Dante Primary"/„Dante Secondary" beidseitig (Ein- und Ausgang) mit Kabeltyp Cat5/6 angelegt; USB, Phones/Kopfhörer werden ignoriert
+- Standardbibliothek: „Yamaha DM3" (Digital Mixer) ergänzt; „iiyama ProLite TE8668MIS-B1AG" um LAN-Port erweitert
+
 ## Version 1.13.2 – 2026-09-07
 
 - „Fehler melden"-Button durch ein Piktogramm (Käfer mit Warndreieck, schwarze Linien) ersetzt
