@@ -1343,6 +1343,34 @@ const ModalsMixin = {
         };
         const vIn = videoBlock('(?:INPUTS?|Eing[äa]nge)'), vOut = videoBlock('(?:OUTPUTS?|Ausg[äa]nge)');
         const isVideo = /\b(sdi|hdmi|displayport|dvi|vga)\b/i.test(vIn + ' ' + vOut);
+
+        // Funkempfänger (z. B. Shure SLXD4Q+): "4 XLR- und 4 1/4"-Ausgänge und 2 lokale Ethernet-Anschlüsse",
+        // Antennen A/B als Eingang + Kaskaden-/Loop-Ausgang (Coax)
+        const isReceiver = /(drahtlos|funk|wireless)[\s-]*(empfänger|receiver)|\d+[\s-]*kanal[\s-]*empfänger|channel\s*receiver/i.test(flat);
+        if (isReceiver && !isVideo) {
+            const cat = this.matchCableType('Cat5/6');
+            const xlr = this.matchCableType('XLR');
+            const klinke = this.matchCableType('Klinke');
+            const coax = this.matchCableType('Coax');
+            const inputs = [], outputs = [], inputCables = [], outputCables = [];
+            const outM = flat.match(/(\d{1,2})\s*x?\s*XLR-?\s*(?:und|and|\/|\+)\s*(\d{1,2})?\s*x?\s*(?:1\/4["”]|6,3\s*mm|Klinke|TRS)/i)
+                || flat.match(/(\d{1,2})\s*x?\s*XLR\s*(?:und|and|\/)\s*(?:6,3\s*mm\s*)?(?:Klinke|TRS|1\/4["”])/i);
+            const chM = flat.match(/(\d{1,2})[\s-]*(?:kanal|channel)/i);
+            const nOut = Math.min(outM ? parseInt(outM[1]) : (chM ? parseInt(chM[1]) : 1), 16);
+            const nTrs = outM ? (outM[2] ? parseInt(outM[2]) : nOut) : nOut;
+            for (let i = 1; i <= nOut; i++) { outputs.push(nOut > 1 ? `XLR OUT ${i}` : 'XLR OUT'); outputCables.push(xlr); }
+            for (let i = 1; i <= Math.min(nTrs, 16); i++) { outputs.push(nTrs > 1 ? `Klinke OUT ${i}` : 'Klinke OUT'); outputCables.push(klinke); }
+            const ethM = flat.match(/(\d)\s*(?:lokale\s*)?(?:Ethernet|RJ45|Netzwerk)[\s-]*(?:Anschl|Ports?|Buchsen)/i);
+            const nEth = ethM ? parseInt(ethM[1]) : 1;
+            for (let i = 1; i <= nEth; i++) { inputs.push(nEth > 1 ? `LAN ${i}` : 'LAN'); inputCables.push(cat); }
+            ['A', 'B'].forEach(a => {
+                inputs.push(`Antenne ${a} IN`); inputCables.push(coax);
+                outputs.push(`Antenne ${a} OUT`); outputCables.push(coax);
+            });
+            const groupInfo = this.groups.find(g => g.id === 'audio');
+            return { name, article: '', type: 'Funkempfänger', group: 'audio', color: groupInfo?.color || '#4d49bc', inputs, outputs, inputCables, outputCables };
+        }
+
         if (!analog && !aes && !hasDante && !micIns && !isVideo) return null;
 
         const cat = this.matchCableType('Cat5/6');

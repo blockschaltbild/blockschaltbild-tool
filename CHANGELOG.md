@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.15.1 – 2026-09-07
+
+- Website-Import: Funkempfänger werden erkannt (z. B. Shure SLXD4Q+): n× XLR OUT + n× Klinke OUT, Ethernet-Ports einzeln (LAN 1, LAN 2), Antenne A/B als Eingang und Loop-Ausgang (Coax). Typ „Funkempfänger".
+
 ## Version 1.15 – 2026-09-07
 
 - Website-Import: Wenn eine Produktseite automatische Abrufe blockiert (z. B. thomann.de, HTTP 403), erscheint statt einer Fehlermeldung ein Textfeld. Der Seitentext kann dort manuell eingefügt und mit „Seite auslesen" analysiert werden.
