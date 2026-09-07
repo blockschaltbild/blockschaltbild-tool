@@ -6,6 +6,7 @@ Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 ## Version 1.15 – 2026-09-07
 
 - Website-Import: Wenn eine Produktseite automatische Abrufe blockiert (z. B. thomann.de, HTTP 403), erscheint statt einer Fehlermeldung ein Textfeld. Der Seitentext kann dort manuell eingefügt und mit „Seite auslesen" analysiert werden.
+- Website-Import: Blockiert eine Seite den Vermittler (thomann.de), wird die Seite automatisch über einen Reader-Dienst (r.jina.ai) direkt aus dem Browser geladen – thomann.de funktioniert damit ohne manuelles Einfügen.
 - Website-Import: Fehlermeldung unterscheidet jetzt zwischen blockierter Seite und sonstigen Abruffehlern.
 
 ## Version 1.14 – 2026-09-07

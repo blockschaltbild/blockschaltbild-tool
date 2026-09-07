@@ -1054,7 +1054,16 @@ const ModalsMixin = {
         try {
             const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(url)}`);
             const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
+            if (!res.ok || !data.ok) {
+                // Seite blockiert den Vermittler (z. B. thomann.de): Reader-Dienst direkt aus dem Browser nutzen
+                hint.textContent = 'Seite blockiert den direkten Abruf – versuche Reader-Dienst...';
+                const rr = await fetch('https://r.jina.ai/' + url, { headers: { 'X-Return-Format': 'text' } });
+                if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
+                const text = await rr.text();
+                const t = text.match(/^Title:\s*(.+)$/m);
+                data.text = text;
+                data.title = t ? t[1].trim() : (document.title || '');
+            }
             document.getElementById('importPasteBlock').style.display = 'none';
             showForm(data.text, data.title);
         } catch (err) {
