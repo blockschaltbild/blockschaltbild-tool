@@ -1060,31 +1060,8 @@ const ModalsMixin = {
 
         const errors = [];
         const candidates = [];
-        const analyze = (text, title, srcUrl) => {
-            const d = this.analyzeWebsiteText(text || '', title || '', srcUrl)
-                || this.analyzeGenericDatasheet(text || '', (title || srcUrl) + '.pdf');
-            if (!d) return null;
-            if (!d.name) d.name = title || '';
-            d.article = '';
-            d._source = srcUrl;
-            d._score = (d.inputs || []).length + (d.outputs || []).length + (d.type && d.type !== 'Gerät' ? 2 : 0);
-            return d;
-        };
-        const fetchPage = async (u) => {
-            const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(u)}`);
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data.ok) return data;
-            // Seite blockiert den Vermittler (z. B. thomann.de): Reader-Dienst direkt aus dem Browser nutzen
-            const rr = await fetch('https://r.jina.ai/' + u, { headers: { 'X-Return-Format': 'markdown' } });
-            if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
-            let text = await rr.text();
-            const t = text.match(/^Title:\s*(.+)$/m);
-            text = text.replace(/^(Title|URL Source|Markdown Content):.*$/gm, '')
-                .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-                .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-                .replace(/^[#>*\-]+\s*/gm, '');
-            return { text, title: t ? t[1].trim() : '' };
-        };
+        const analyze = (text, title, srcUrl) => this.analyzeImportPage(text, title, srcUrl);
+        const fetchPage = (u) => this.fetchImportPage(u, endpoint);
 
         try {
             progress(5, 'Schritt 1/3: Lese Produktseite...');
@@ -1178,6 +1155,93 @@ const ModalsMixin = {
         }
     },
 
+    async fetchImportPage(u, endpoint) {
+        const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(u)}`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) return data;
+        // Seite blockiert den Vermittler (z. B. thomann.de): Reader-Dienst direkt aus dem Browser nutzen
+        const rr = await fetch('https://r.jina.ai/' + u, { headers: { 'X-Return-Format': 'markdown' } });
+        if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
+        let text = await rr.text();
+        const t = text.match(/^Title:\s*(.+)$/m);
+        text = text.replace(/^(Title|URL Source|Markdown Content):.*$/gm, '')
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/^[#>*\-]+\s*/gm, '');
+        return { text, title: t ? t[1].trim() : '' };
+    },
+
+    analyzeImportPage(text, title, srcUrl) {
+        const d = this.analyzeWebsiteText(text || '', title || '', srcUrl)
+            || this.analyzeGenericDatasheet(text || '', (title || srcUrl) + '.pdf');
+        if (!d) return null;
+        if (!d.name) d.name = title || '';
+        d.article = '';
+        d._source = srcUrl;
+        d._score = (d.inputs || []).length + (d.outputs || []).length + (d.type && d.type !== 'Gerät' ? 2 : 0);
+        return d;
+    },
+
+    isDeviceInfoIncomplete(info) {
+        if (!info) return true;
+        return !(info.name || '').trim()
+            || !(info.type || '').trim() || info.type === 'Gerät'
+            || !(info.inputs || []).length || !(info.outputs || []).length;
+    },
+
+    mergeDeviceInfo(primary, addition) {
+        if (!addition) return primary;
+        const merged = { ...primary };
+        if (!(merged.name || '').trim() && addition.name) merged.name = addition.name;
+        if (!(merged.article || '').trim() && addition.article) merged.article = addition.article;
+        if ((!(merged.type || '').trim() || merged.type === 'Gerät') && addition.type) merged.type = addition.type;
+        if ((!merged.group || merged.group === 'other') && addition.group) {
+            merged.group = addition.group;
+            merged.color = this.groupColor(addition.group);
+        }
+        if (!(merged.inputs || []).length && (addition.inputs || []).length) {
+            merged.inputs = addition.inputs;
+            merged.inputCables = addition.inputCables;
+        }
+        if (!(merged.outputs || []).length && (addition.outputs || []).length) {
+            merged.outputs = addition.outputs;
+            merged.outputCables = addition.outputCables;
+        }
+        return merged;
+    },
+
+    // Ergänzt fehlende/unklare Felder eines Datenblatt-Ergebnisses per Websuche und führt beide Quellen zusammen
+    async enrichDeviceInfoFromWeb(deviceInfo, filename, statusEl) {
+        const endpoint = (typeof BUG_REPORT_CONFIG !== 'undefined' && BUG_REPORT_CONFIG.endpoint) || '';
+        if (!endpoint || !this.isDeviceInfoIncomplete(deviceInfo)) return { info: deviceInfo, sources: [] };
+        try {
+            if (statusEl) statusEl.textContent = 'Ergänze fehlende Angaben per Websuche...';
+            const errors = [];
+            let query = (deviceInfo.name || deviceInfo.article || filename.replace(/\.pdf$/i, '')).trim();
+            query = query.replace(/\s+/g, ' ').split(' ').slice(0, 6).join(' ');
+            if (!query) return { info: deviceInfo, sources: [] };
+            const results = await this.searchWeb(query + ' technische daten', endpoint, errors);
+            const skip = /youtube|facebook|instagram|ebay|amazon|idealo|geizhals|wikipedia|reddit|\.pdf$/i;
+            const top = results.filter(r => !skip.test(r.url)).slice(0, 2);
+            const candidates = [];
+            for (const r of top) {
+                try {
+                    const data = await this.fetchImportPage(r.url, endpoint);
+                    const d = this.analyzeImportPage(data.text, data.title || r.title, r.url);
+                    if (d) candidates.push(d);
+                } catch (err) { /* diese Quelle überspringen */ }
+            }
+            if (!candidates.length) return { info: deviceInfo, sources: [] };
+            candidates.sort((a, b) => b._score - a._score);
+            const merged = this.mergeDeviceInfo(deviceInfo, candidates[0]);
+            const sources = [...new Set(candidates.map(c => new URL(c._source).host.replace(/^www\./, '')))];
+            return { info: merged, sources };
+        } catch (err) {
+            console.error('Web-Ergänzung Fehler:', err);
+            return { info: deviceInfo, sources: [] };
+        }
+    },
+
     async importPdfDatasheet(file) {
         document.getElementById('pdfImportTitle').textContent = 'Gerät aus Datenblatt importieren';
         document.getElementById('pdfAnalysisStatus').querySelector('p').textContent = 'Analysiere Datenblatt...';
@@ -1198,7 +1262,12 @@ const ModalsMixin = {
             }
             
             const deviceInfo = this.analyzeDatasheet(fullText, file.name);
-            this.showPdfDeviceForm(deviceInfo);
+            const statusEl = document.getElementById('pdfAnalysisStatus').querySelector('p');
+            const { info: enrichedInfo, sources } = await this.enrichDeviceInfoFromWeb(deviceInfo, file.name, statusEl);
+            if (sources.length) {
+                document.getElementById('pdfImportTitle').textContent = 'Gerät aus Datenblatt importieren (ergänzt aus Web: ' + sources.join(', ') + ')';
+            }
+            this.showPdfDeviceForm(enrichedInfo);
             
         } catch (err) {
             console.error('PDF Analyse Fehler:', err);

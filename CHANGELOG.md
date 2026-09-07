@@ -3,6 +3,11 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.16.1 – 2026-09-07
+
+- Datenblatt-Import (PDF): Fehlen nach der Analyse Angaben (Typ, Ein-/Ausgänge) oder bleibt der Typ unbestimmt, ergänzt das Tool automatisch per Websuche (gleicher Mechanismus wie beim Website-Import) und führt beide Ergebnisse zusammen – die Datenblatt-Angaben haben dabei Vorrang, die Websuche füllt nur Lücken. Genutzte Quellen erscheinen im Fenstertitel.
+- Entfernter Hinweistext „Seitentext hier einfügen ..." im Einfügefeld des Website-Imports (Funktion wird nicht mehr in dieser Form genutzt).
+
 ## Version 1.16 – 2026-09-07
 
 - Website-Import lernt selbstständig dazu: Nach dem Auslesen der angegebenen Seite sucht das Tool im Hintergrund nach weiteren Quellen (Hersteller bevorzugt), liest bis zu drei zusätzliche Seiten aus und übernimmt das vollständigste Ergebnis. Die verwendeten Quellen stehen im Fenstertitel.
