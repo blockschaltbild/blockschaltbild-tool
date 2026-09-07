@@ -37,6 +37,11 @@
                         <button id="btnSave" title="Speichern">Speichern</button>
                         <button id="btnLoad" title="Laden">Laden</button>
                         <input type="file" id="fileLoad" accept=".json" style="display:none">
+                        <div class="menu-separator"></div>
+                        <button id="btnExportPDF" title="Arbeitsbereiche als mehrseitiges Plan-PDF exportieren (A1 Querformat)">PDF Export (A1)</button>
+                        <button id="btnExportLists" title="Geräte- und Kabelliste als PDF">Listen PDF</button>
+                        <button id="btnExportDevices" title="Geräte als Excel exportieren">Geräte Export</button>
+                        <button id="btnPrint" title="Drucken">Drucken</button>
                     </div>
                 </div>
 
@@ -62,17 +67,6 @@
                         <button id="btnClearConnections" title="Alle Verbindungen löschen">Verbindungen löschen</button>
                         <button id="btnCheckSignals" title="Bestehende Verbindungen auf Signalkompatibilität prüfen: fehlende Konverter einfügen, überflüssige entfernen">Signale prüfen</button>
                         <label title="Bei inkompatiblen Signalen (z.B. HDMI → SDI) automatisch einen Konverter einfügen"><input type="checkbox" id="chkAutoConverter" checked> Auto-Konverter</label>
-                    </div>
-                </div>
-
-                <div class="menu-dropdown">
-                    <button type="button" class="menu-trigger" data-menu="export">Export ▾</button>
-                    <div class="menu-panel" id="menuExport">
-                        <button id="btnExportPDF" title="Als PDF exportieren (A1 Querformat)">PDF Export (A1)</button>
-                        <button id="btnExportLists" title="Geräte- und Kabelliste als PDF">Listen PDF</button>
-                        <button id="btnExportDevices" title="Geräte als Excel exportieren">Geräte Export</button>
-                        <button id="btnPrint" title="Drucken">Drucken</button>
-                        <label title="Geräte nur mit schwarzen Umrissen exportieren, farbig bleiben nur die Verbindungslinien"><input type="checkbox" id="chkExportMono"> S/W-Geräte</label>
                     </div>
                 </div>
 
@@ -280,6 +274,23 @@
             <div id="exportGroupsList" class="manage-list"></div>
             <div class="modal-buttons">
                 <button type="button" id="btnCloseExport">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pdfExportModal" class="modal">
+        <div class="modal-content">
+            <h2>Plan als PDF exportieren</h2>
+            <p class="hint">Wählen Sie die Arbeitsbereiche, die als Seiten in das PDF (A1 Querformat) aufgenommen werden sollen.</p>
+            <div class="add-group-row">
+                <button type="button" id="btnPdfSheetsAll">Alle auswählen</button>
+                <button type="button" id="btnPdfSheetsNone">Keine auswählen</button>
+            </div>
+            <div id="pdfExportSheetList" class="manage-list"></div>
+            <label class="pdf-export-option" title="Geräte nur mit schwarzen Umrissen exportieren, farbig bleiben nur die Verbindungslinien"><input type="checkbox" id="chkExportMono"> S/W-Geräte</label>
+            <div class="modal-buttons">
+                <button type="button" id="btnCancelPdfExport">Abbrechen</button>
+                <button type="button" id="btnStartPdfExport" class="primary">PDF erstellen</button>
             </div>
         </div>
     </div>

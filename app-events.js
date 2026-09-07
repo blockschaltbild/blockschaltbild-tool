@@ -51,7 +51,11 @@ const EventsMixin = {
         });
         document.getElementById('btnClearConnections').addEventListener('click', () => this.clearConnections());
         
-        document.getElementById('btnExportPDF').addEventListener('click', () => this.exportPDF());
+        document.getElementById('btnExportPDF').addEventListener('click', () => this.showPdfExportModal());
+        document.getElementById('btnCancelPdfExport').addEventListener('click', () => this.hidePdfExportModal());
+        document.getElementById('btnStartPdfExport').addEventListener('click', () => this.startPdfExportFromModal());
+        document.getElementById('btnPdfSheetsAll').addEventListener('click', () => this.setPdfExportSheetsChecked(true));
+        document.getElementById('btnPdfSheetsNone').addEventListener('click', () => this.setPdfExportSheetsChecked(false));
         document.getElementById('btnExportLists').addEventListener('click', () => this.exportListsPDF());
         document.getElementById('btnExportDevices').addEventListener('click', () => this.showExportModal());
         document.getElementById('btnCloseExport').addEventListener('click', () => this.hideExportModal());

@@ -474,21 +474,99 @@ const ExportMixin = {
         }
     },
 
-    async exportPDF() {
+    showPdfExportModal() {
+        this.storeActiveSheet();
+        const list = document.getElementById('pdfExportSheetList');
+        list.innerHTML = '';
+        this.sheets.forEach((sheet, idx) => {
+            const label = document.createElement('label');
+            label.className = 'manage-item pdf-sheet-item';
+            const count = (sheet.devices || []).length;
+            label.innerHTML = `
+                <input type="checkbox" class="pdf-sheet-check" data-index="${idx}" checked>
+                <div class="manage-name">${sheet.name}${idx === this.activeSheet ? ' (aktuell)' : ''}</div>
+                <div class="manage-meta">${count} Gerät${count === 1 ? '' : 'e'}</div>
+            `;
+            list.appendChild(label);
+        });
+        document.getElementById('pdfExportModal').classList.add('active');
+    },
+
+    hidePdfExportModal() {
+        document.getElementById('pdfExportModal').classList.remove('active');
+    },
+
+    setPdfExportSheetsChecked(checked) {
+        document.querySelectorAll('#pdfExportSheetList .pdf-sheet-check').forEach(chk => { chk.checked = checked; });
+    },
+
+    startPdfExportFromModal() {
+        const indices = Array.from(document.querySelectorAll('#pdfExportSheetList .pdf-sheet-check:checked'))
+            .map(chk => parseInt(chk.dataset.index, 10))
+            .filter(i => !isNaN(i) && i >= 0 && i < this.sheets.length);
+        if (!indices.length) {
+            alert('Bitte mindestens einen Arbeitsbereich auswählen.');
+            return;
+        }
+        this.hidePdfExportModal();
+        this.exportPDF(indices);
+    },
+
+    async exportPDF(sheetIndices) {
         const { jsPDF } = window.jspdf;
         
         const A1_WIDTH_MM = 841;
         const A1_HEIGHT_MM = 594;
-        const MARGIN = 25;
-        const COL_WIDTH = 150;
-        const ROW_HEIGHT = 28;
-        const ROWS = 4;
         
         const pdf = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
             format: [A1_HEIGHT_MM, A1_WIDTH_MM]
         });
+        
+        const indices = Array.isArray(sheetIndices) && sheetIndices.length ? sheetIndices : [this.activeSheet];
+        const originalSheet = this.activeSheet;
+        const monochrome = this.isMonochromeExport();
+        const logoPNG = await this.renderLogoPNG(1200);
+        const multiPage = indices.length > 1;
+        
+        this.deselectAll();
+        this.storeActiveSheet();
+        try {
+            for (let p = 0; p < indices.length; p++) {
+                const idx = indices[p];
+                if (idx !== this.activeSheet) this.activateSheet(idx);
+                if (p > 0) pdf.addPage([A1_HEIGHT_MM, A1_WIDTH_MM], 'landscape');
+                await this.drawPlanPage(pdf, {
+                    widthMM: A1_WIDTH_MM,
+                    heightMM: A1_HEIGHT_MM,
+                    logoPNG,
+                    monochrome,
+                    sheetName: this.sheets[idx].name,
+                    pageNo: p + 1,
+                    pageCount: indices.length,
+                    multiPage
+                });
+            }
+        } catch (err) {
+            console.error('Diagramm-Rendering fehlgeschlagen:', err);
+            alert('Das Diagramm konnte nicht gerendert werden: ' + err.message);
+            return;
+        } finally {
+            if (this.activeSheet !== originalSheet) this.activateSheet(originalSheet);
+        }
+        
+        pdf.save(`${this.projectName.replace(/\s+/g, '_')}_A1.pdf`);
+    },
+
+    async drawPlanPage(pdf, opts) {
+        const A1_WIDTH_MM = opts.widthMM;
+        const A1_HEIGHT_MM = opts.heightMM;
+        const MARGIN = 25;
+        const COL_WIDTH = 150;
+        const ROW_HEIGHT = 28;
+        const ROWS = 4;
+        const logoPNG = opts.logoPNG;
         
         const frameX = MARGIN;
         const frameY = MARGIN;
@@ -512,7 +590,6 @@ const ExportMixin = {
         const logoHeight = logoWidth * logoAspect;
         const logoX = colX + (COL_WIDTH - logoWidth) / 2;
         const logoY = frameY + 14;
-        const logoPNG = await this.renderLogoPNG(1200);
         if (logoPNG) {
             pdf.addImage(logoPNG, 'PNG', logoX, logoY, logoWidth, logoHeight);
         } else {
@@ -554,6 +631,13 @@ const ExportMixin = {
         pdf.setTextColor(60, 60, 60);
         pdf.text(this.projectNumber ? `Projekt-Nr. ${this.projectNumber}` : '', frameX + 18, frameY + 32);
         
+        if (opts.multiPage) {
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(12);
+            pdf.setTextColor(60, 60, 60);
+            pdf.text(`${opts.sheetName}  ·  Blatt ${opts.pageNo} / ${opts.pageCount}`, colX - 12, frameY + 20, { align: 'right' });
+        }
+        
         const bounds = this.getBounds();
         const pad = 40;
         const viewX = bounds.minX - pad;
@@ -572,18 +656,10 @@ const ExportMixin = {
         const imgX = drawX + (availableWidth - imgW) / 2;
         const imgY = drawY + (availableHeight - imgH) / 2;
 
-        try {
-            const png = await this.renderDiagramPNG({
-                x: viewX, y: viewY, width: diagramWidth, height: diagramHeight
-            }, Math.round(imgW * 200 / 25.4), { monochrome: this.isMonochromeExport() });
-            pdf.addImage(png, 'PNG', imgX, imgY, imgW, imgH, undefined, 'FAST');
-        } catch (err) {
-            console.error('Diagramm-Rendering fehlgeschlagen:', err);
-            alert('Das Diagramm konnte nicht gerendert werden: ' + err.message);
-            return;
-        }
-        
-        pdf.save(`${this.projectName.replace(/\s+/g, '_')}_A1.pdf`);
+        const png = await this.renderDiagramPNG({
+            x: viewX, y: viewY, width: diagramWidth, height: diagramHeight
+        }, Math.round(imgW * 200 / 25.4), { monochrome: opts.monochrome });
+        pdf.addImage(png, 'PNG', imgX, imgY, imgW, imgH, undefined, 'FAST');
     },
 
     exportListsPDF() {

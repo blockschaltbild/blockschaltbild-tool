@@ -270,6 +270,12 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     color: var(--ict-blue);
 }
 
+.menu-separator {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--ict-border);
+}
+
 .menu-panel label {
     color: var(--ict-text);
     font-size: 12px;
@@ -1223,16 +1229,39 @@ input[type="checkbox"] {
 }
 
 .modal-buttons button[type="submit"],
-.modal-buttons button#btnDeviceNext {
+.modal-buttons button#btnDeviceNext,
+.modal-buttons button#btnStartPdfExport {
     background: var(--ict-blue);
     border-color: var(--ict-blue);
     color: #fff;
 }
 
 .modal-buttons button[type="submit"]:hover,
-.modal-buttons button#btnDeviceNext:hover {
+.modal-buttons button#btnDeviceNext:hover,
+.modal-buttons button#btnStartPdfExport:hover {
     background: var(--ict-blue-hover);
     border-color: var(--ict-blue-hover);
+}
+
+.pdf-export-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--ict-text);
+}
+
+.pdf-sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.pdf-sheet-item .manage-meta {
+    margin-left: auto;
 }
 
 .modal-buttons button#btnResetLibrary {
