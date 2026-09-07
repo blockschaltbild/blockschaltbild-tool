@@ -18,6 +18,7 @@ const LibraryMixin = {
             { name: 'Sony PXW-Z280', type: 'Camera', article: 'PXW-Z280', group: 'video', color: '#1abc9c', inputs: [], outputs: ['SDI', 'HDMI'], inputCables: [], outputCables: ['SDI', 'HDMI'] },
             { name: 'BiDi 12G', type: 'Microconverter', article: '1028664', group: 'video', color: '#9b59b6', inputs: ['HDMI IN 1', 'SDI IN 2'], outputs: ['HDMI OUT 1', 'SDI OUT 2'], inputCables: ['HDMI', 'SDI'], outputCables: ['HDMI', 'SDI'] },
             { name: 'DP-HDMI Adapter', type: 'Adapter', article: 'DP-HDMI', group: 'video', color: '#9b59b6', inputs: ['DP IN'], outputs: ['HDMI OUT'], inputCables: ['DisplayPort'], outputCables: ['HDMI'] },
+            { name: 'CVT-10', type: 'Medienkonverter', article: 'CVT-10', group: 'control', color: '#e67e22', inputs: ['LC/LC IN', 'Cat5/6 IN'], outputs: ['Cat5/6 OUT', 'LC/LC OUT'], inputCables: ['Glasfaser LC/LC', 'Cat5/6'], outputCables: ['Cat5/6', 'Glasfaser LC/LC'] },
             { name: 'MA Lighting grandMA3', type: 'Lighting Console', article: 'grandMA3', group: 'light', color: '#f1c40f', inputs: ['DMX IN'], outputs: ['DMX 1', 'DMX 2', 'DMX 3', 'DMX 4'], inputCables: ['DMX'], outputCables: ['DMX', 'DMX', 'DMX', 'DMX'] },
             { name: 'Crestron CP4', type: 'Control Processor', article: 'CP4', group: 'control', color: '#e67e22', inputs: ['COM 1', 'COM 2', 'IR 1', 'IR 2'], outputs: ['RELAY 1', 'RELAY 2'], inputCables: ['Cat5/6', 'Cat5/6', '', ''], outputCables: ['', ''] }
         ];
@@ -247,8 +248,10 @@ const LibraryMixin = {
                 div.addEventListener('dragend', () => {
                     this.dragTemplateIndex = null;
                 });
-                div.addEventListener('dblclick', () => {
-                    this.addDeviceToCanvas(t, 100, 100);
+                div.addEventListener('click', () => {
+                    const pos = this.visibleCanvasCenter();
+                    const device = this.addDeviceToCanvas(t, pos.x, pos.y);
+                    this.selectElement(device, 'device');
                 });
                 devicesContainer.appendChild(div);
             });
@@ -294,6 +297,15 @@ const LibraryMixin = {
         return { x: px, y: py };
     },
 
+    visibleCanvasCenter() {
+        const wrapper = document.getElementById('canvasWrapper');
+        if (!wrapper) return { x: 100, y: 100 };
+        const zoom = this.zoom || 1;
+        const x = (wrapper.scrollLeft + wrapper.clientWidth / 2) / zoom - 80;
+        const y = (wrapper.scrollTop + wrapper.clientHeight / 2) / zoom - 60;
+        return { x: Math.max(20, x), y: Math.max(20, y) };
+    },
+
     addDeviceToCanvas(template, x = 100, y = 100) {
         const extra = template.placeholder ? 16 : 0;
         const height = Math.max(90, 50 + Math.max(template.inputs.length, template.outputs.length) * 20) + extra;
@@ -313,6 +325,7 @@ const LibraryMixin = {
             width: 160,
             height: height,
             placeholder: !!template.placeholder,
+            origin: { name: template.name, type: template.type, article: template.article || '', group: template.group || 'other', color: template.color },
             inputs: template.inputs.map((name, i) => ({ id: `in-${i}`, name, cable: template.inputCables?.[i] || '', connected: false })),
             outputs: template.outputs.map((name, i) => ({ id: `out-${i}`, name, cable: template.outputCables?.[i] || '', connected: false }))
         };

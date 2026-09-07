@@ -48,29 +48,210 @@ const ModalsMixin = {
         `;
         
         panel.querySelector('#propName').addEventListener('change', (e) => {
-            device.name = e.target.value;
-            this.renderDevice(device);
+            this.applyDeviceChange(device, { name: e.target.value });
         });
         panel.querySelector('#propArticle').addEventListener('change', (e) => {
-            device.article = e.target.value;
-            this.renderDevice(device);
+            this.applyDeviceChange(device, { article: e.target.value });
         });
         panel.querySelector('#propType').addEventListener('change', (e) => {
-            device.type = e.target.value;
-            this.renderDevice(device);
+            this.applyDeviceChange(device, { type: e.target.value });
         });
         panel.querySelector('#propGroup').addEventListener('change', (e) => {
-            device.group = e.target.value;
+            this.applyDeviceChange(device, { group: e.target.value });
         });
         panel.querySelector('#propColor').addEventListener('change', (e) => {
-            device.color = e.target.value;
-            this.renderDevice(device);
+            this.applyDeviceChange(device, { color: e.target.value });
         });
         panel.querySelector('#propPlaceholder').addEventListener('change', (e) => {
             device.placeholder = e.target.checked;
             this.renderDevice(device);
+            this.markSelectedDevice(device);
         });
         panel.querySelector('#btnDeleteDevice').addEventListener('click', () => this.deleteSelected());
+    },
+
+    focusPropertiesPanel() {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar?.classList.contains('collapsed')) sidebar.classList.remove('collapsed');
+        const panel = document.getElementById('propertiesPanel');
+        if (!panel) return;
+        requestAnimationFrame(() => {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            panel.classList.add('highlight');
+            setTimeout(() => panel.classList.remove('highlight'), 1200);
+            panel.querySelector('input, select, textarea')?.focus({ preventScroll: true });
+        });
+    },
+
+    markSelectedDevice(device) {
+        if (this.selectedElement?.type === 'device' && this.selectedElement.element === device) {
+            document.getElementById(device.id)?.classList.add('selected');
+        }
+    },
+
+    allDevices() {
+        const list = [];
+        this.sheets.forEach((sheet, idx) => {
+            const devices = idx === this.activeSheet ? this.devices : sheet.devices;
+            (devices || []).forEach(d => list.push(d));
+        });
+        return list;
+    },
+
+    sameDeviceKey(device) {
+        return `${device.name || ''}\u0000${device.article || ''}`;
+    },
+
+    applyDeviceChange(device, changes, options = {}) {
+        const props = ['name', 'type', 'article', 'group', 'color'];
+        if ('group' in changes && !('color' in changes)) {
+            const gc = this.groupColor(changes.group);
+            if (gc) changes = { ...changes, color: gc };
+        }
+        const assign = (target) => props.forEach(p => { if (p in changes) target[p] = changes[p]; });
+        
+        if (device.placeholder || options.local) {
+            assign(device);
+            this.renderDevice(device);
+            this.markSelectedDevice(device);
+            if (this.selectedElement?.type === 'device' && this.selectedElement.element === device) {
+                this.showDeviceProperties(device);
+            }
+            return;
+        }
+        
+        const key = this.sameDeviceKey(device);
+        const targets = this.allDevices().filter(d => !d.placeholder && this.sameDeviceKey(d) === key);
+        if (!targets.includes(device)) targets.push(device);
+        targets.forEach(d => {
+            assign(d);
+            if (this.devices.includes(d)) this.renderDevice(d);
+        });
+        
+        const template = this.deviceTemplates.find(t => !t.placeholder && this.sameDeviceKey(t) === key);
+        if (template) {
+            assign(template);
+            this.saveLibrary();
+        }
+        
+        this.markSelectedDevice(device);
+        if (this.selectedElement?.type === 'device' && this.selectedElement.element === device) {
+            this.showDeviceProperties(device);
+        }
+    },
+
+    findTemplateIndexForDevice(device) {
+        const key = this.sameDeviceKey(device);
+        let idx = this.deviceTemplates.findIndex(t => !t.placeholder && this.sameDeviceKey(t) === key);
+        if (idx < 0 && device.origin) {
+            const okey = this.sameDeviceKey(device.origin);
+            idx = this.deviceTemplates.findIndex(t => !t.placeholder && this.sameDeviceKey(t) === okey);
+        }
+        if (idx < 0) idx = this.deviceTemplates.findIndex(t => !t.placeholder && t.name === device.name);
+        return idx;
+    },
+
+    openDeviceTemplateEditor(device) {
+        this.selectElement(device, 'device');
+        const idx = device.placeholder ? -1 : this.findTemplateIndexForDevice(device);
+        if (idx < 0) {
+            this.focusPropertiesPanel();
+            return;
+        }
+        const template = this.deviceTemplates[idx];
+        const search = document.getElementById('manageDeviceSearch');
+        if (search) search.value = template.name;
+        this.renderManageDevicesList();
+        this.editingTemplateBefore = { name: template.name, type: template.type, article: template.article || '', group: template.group || 'other', color: template.color };
+        this.showDeviceModal(template, idx);
+    },
+
+    propagateTemplateChange(before, template) {
+        if (!before) return;
+        const key = this.sameDeviceKey(before);
+        const changes = { name: template.name, type: template.type, article: template.article || '', group: template.group || 'other', color: template.color };
+        this.allDevices().forEach(d => {
+            if (d.placeholder || this.sameDeviceKey(d) !== key) return;
+            Object.assign(d, changes);
+            d.origin = { ...changes };
+            if (this.devices.includes(d)) this.renderDevice(d);
+        });
+        if (this.selectedElement?.type === 'device') {
+            this.markSelectedDevice(this.selectedElement.element);
+            this.showDeviceProperties(this.selectedElement.element);
+        }
+    },
+
+    resetDevice(device) {
+        let origin = device.origin;
+        if (!origin) {
+            const template = this.deviceTemplates.find(t => this.sameDeviceKey(t) === this.sameDeviceKey(device));
+            if (template) origin = { name: template.name, type: template.type, article: template.article || '', group: template.group || 'other', color: template.color };
+        }
+        if (!origin) {
+            alert('Für dieses Gerät sind keine Ursprungswerte bekannt.');
+            return;
+        }
+        this.applyDeviceChange(device, { ...origin }, { local: true });
+    },
+
+    hideDeviceContextMenu() {
+        document.getElementById('deviceContextMenu')?.remove();
+    },
+
+    showDeviceContextMenu(device, clientX, clientY) {
+        this.hideDeviceContextMenu();
+        
+        const menu = document.createElement('div');
+        menu.id = 'deviceContextMenu';
+        menu.className = 'context-menu';
+        menu.innerHTML = `
+            <div class="context-menu-title">${this.escapeHtml(device.name)}${device.placeholder ? ' <span class="context-menu-tag">Platzhalter</span>' : ''}</div>
+            <button type="button" data-action="properties">Geräteeigenschaften öffnen</button>
+            <div class="menu-separator"></div>
+            <div class="context-menu-sub">
+                <button type="button" class="context-menu-sub-trigger">Gruppe <span class="context-menu-arrow">▸</span></button>
+                <div class="context-menu-sub-panel">
+                    ${this.groups.map(g => `<button type="button" data-action="group" data-group="${this.escapeHtml(g.id)}" class="${g.id === device.group ? 'active' : ''}"><span class="context-menu-swatch" style="background:${this.escapeHtml(g.color || '#95a5a6')}"></span>${this.escapeHtml(g.name)}</button>`).join('')}
+                </div>
+            </div>
+            <label class="context-menu-color">Farbe <input type="color" id="ctxDeviceColor" value="${this.escapeHtml(device.color || '#3498db')}"></label>
+            <div class="menu-separator"></div>
+            <button type="button" data-action="reset">Zurücksetzen</button>
+            <button type="button" data-action="delete" class="danger">Löschen</button>
+        `;
+        document.body.appendChild(menu);
+        
+        const pad = 8;
+        const rect = menu.getBoundingClientRect();
+        const left = Math.min(clientX, window.innerWidth - rect.width - pad);
+        const top = Math.min(clientY, window.innerHeight - rect.height - pad);
+        menu.style.left = `${Math.max(pad, left)}px`;
+        menu.style.top = `${Math.max(pad, top)}px`;
+        
+        menu.addEventListener('contextmenu', (e) => e.preventDefault());
+        menu.addEventListener('mousedown', (e) => e.stopPropagation());
+        
+        menu.querySelector('#ctxDeviceColor').addEventListener('input', (e) => {
+            this.applyDeviceChange(device, { color: e.target.value }, { local: true });
+        });
+        
+        menu.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                if (action === 'properties') {
+                    this.openDeviceTemplateEditor(device);
+                } else if (action === 'group') {
+                    this.applyDeviceChange(device, { group: btn.dataset.group }, { local: true });
+                } else if (action === 'reset') {
+                    this.resetDevice(device);
+                } else if (action === 'delete') {
+                    this.selectElement(device, 'device');
+                    this.deleteSelected();
+                }
+                this.hideDeviceContextMenu();
+            });
+        });
     },
 
     showConnectionProperties(conn) {
@@ -226,6 +407,7 @@ const ModalsMixin = {
         document.getElementById('deviceModal').classList.remove('active');
         this.devicePrefill = null;
         this.editingTemplateIndex = null;
+        this.editingTemplateBefore = null;
     },
 
     updateDeviceGroupSelect() {
@@ -285,6 +467,7 @@ const ModalsMixin = {
             });
             div.querySelector('.btn-edit').addEventListener('click', () => {
                 this.hideDeviceManageModal();
+                this.editingTemplateBefore = { name: t.name, type: t.type, article: t.article || '', group: t.group || 'other', color: t.color };
                 this.showDeviceModal(t, idx);
             });
             div.querySelector('.btn-delete').addEventListener('click', () => {
@@ -581,6 +764,8 @@ const ModalsMixin = {
         if (this.editingTemplateIndex !== null && this.editingTemplateIndex !== undefined) {
             this.deviceTemplates[this.editingTemplateIndex] = template;
             this.editingTemplateIndex = null;
+            this.propagateTemplateChange(this.editingTemplateBefore, template);
+            this.editingTemplateBefore = null;
             this.saveLibrary();
             this.renderDeviceLibrary();
             this.hideDeviceModal();

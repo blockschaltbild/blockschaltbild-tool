@@ -117,6 +117,8 @@ const ConnectionsMixin = {
         if (/\bHDMI\b/.test(t) || t.startsWith('HDMI')) return 'HDMI';
         if (/\bSDI\b/.test(t) || /\bSDI/.test(t) || /(3G|6G|12G)[- ]?SDI/.test(t)) return 'SDI';
         if (/DISPLAYPORT/.test(t) || /\bDP\b/.test(t) || /\bMINI[- ]?DP\b/.test(t)) return 'DP';
+        if (/\bLC\s*\/\s*LC\b/.test(t) || /\bLC\b/.test(t) || /GLASFASER/.test(t) || /\bLWL\b/.test(t) || /\bFIBER\b/.test(t) || /\bFIBRE\b/.test(t)) return 'LC';
+        if (/\bCAT\s*[5-8]/.test(t) || /\bRJ\s*45\b/.test(t) || /\bETHERNET\b/.test(t) || /\bLAN\b/.test(t)) return 'CAT';
         return '';
     },
 
@@ -623,27 +625,62 @@ const ConnectionsMixin = {
         return { x: a.x + t * r.x, y: a.y + t * r.y, dx: r.x, dy: r.y };
     },
 
+    pointsBBox(pts) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of pts) {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+        }
+        return { minX, minY, maxX, maxY };
+    },
+
     drawCrossingBridges() {
         const items = [];
+        if (!this._sampleCache) this._sampleCache = new Map();
+        const cache = this._sampleCache;
+        const seen = new Set();
         this.connections.forEach(conn => {
             const group = document.getElementById(conn.id);
             const pathEl = group && group.querySelector('.connection');
             if (!pathEl) return;
-            if (pathEl.dataset.baseD) pathEl.setAttribute('d', pathEl.dataset.baseD);
+            const baseD = pathEl.dataset.baseD || pathEl.getAttribute('d');
+            if (pathEl.dataset.baseD && pathEl.getAttribute('d') !== baseD) pathEl.setAttribute('d', baseD);
             const nodes = this.lineStyle === 'orthogonal' ? conn._nodes : null;
-            items.push({ conn: conn, path: pathEl, nodes: nodes,
-                points: nodes || this.samplePath(pathEl) });
+            let points = nodes;
+            if (!points) {
+                seen.add(baseD);
+                points = cache.get(baseD);
+                if (!points) {
+                    points = this.samplePath(pathEl);
+                    cache.set(baseD, points);
+                }
+            }
+            items.push({ conn: conn, path: pathEl, nodes: nodes, points: points,
+                bbox: this.pointsBBox(points) });
         });
+        for (const key of cache.keys()) if (!seen.has(key)) cache.delete(key);
         
         const radius = 6;
         for (let i = 0; i < items.length; i++) {
             const hops = [];
+            const bi = items[i].bbox;
             for (let j = 0; j < i; j++) {
+                const bj = items[j].bbox;
+                if (bi.minX > bj.maxX || bi.maxX < bj.minX || bi.minY > bj.maxY || bi.maxY < bj.minY) continue;
                 const a = items[i].points;
                 const b = items[j].points;
                 for (let p = 0; p < a.length - 1; p++) {
+                    const a0 = a[p], a1 = a[p + 1];
+                    const sMinX = Math.min(a0.x, a1.x), sMaxX = Math.max(a0.x, a1.x);
+                    const sMinY = Math.min(a0.y, a1.y), sMaxY = Math.max(a0.y, a1.y);
+                    if (sMinX > bj.maxX || sMaxX < bj.minX || sMinY > bj.maxY || sMaxY < bj.minY) continue;
                     for (let q = 0; q < b.length - 1; q++) {
-                        const hit = this.segmentIntersection(a[p], a[p + 1], b[q], b[q + 1]);
+                        const b0 = b[q], b1 = b[q + 1];
+                        if (sMinX > Math.max(b0.x, b1.x) || sMaxX < Math.min(b0.x, b1.x) ||
+                            sMinY > Math.max(b0.y, b1.y) || sMaxY < Math.min(b0.y, b1.y)) continue;
+                        const hit = this.segmentIntersection(a0, a1, b0, b1);
                         if (!hit) continue;
                         if (hops.some(h => Math.hypot(h.x - hit.x, h.y - hit.y) < radius * 3)) continue;
                         hops.push(hit);
@@ -872,51 +909,175 @@ const ConnectionsMixin = {
         this.previewLayer.innerHTML = '';
     },
 
-    autoConnect() {
-        const unconnectedOutputs = [];
-        const unconnectedInputs = [];
+    showAutoConnectModal() {
+        if (this.devices.length < 2) {
+            alert('Für Auto-Verbinden werden mindestens zwei Geräte im Plan benötigt.');
+            return;
+        }
+        const fromSel = document.getElementById('autoConnectFrom');
+        const toSel = document.getElementById('autoConnectTo');
+        const sorted = [...this.devices].sort((a, b) => a.x - b.x || a.y - b.y);
+        const optionsHtml = sorted.map(d => {
+            const meta = [d.outputs.length ? `${d.outputs.length} Out` : '', d.inputs.length ? `${d.inputs.length} In` : ''].filter(Boolean).join(' / ');
+            return `<option value="${d.id}">${this.escapeHtml(d.name)}${meta ? ` (${meta})` : ''}</option>`;
+        }).join('');
+        fromSel.innerHTML = optionsHtml;
+        toSel.innerHTML = optionsHtml;
         
-        this.devices.forEach(device => {
-            device.outputs.forEach(port => {
-                if (!port.connected) {
-                    unconnectedOutputs.push({ device, port });
-                }
+        const selected = Array.from(document.querySelectorAll('.device-block.selected'))
+            .map(el => this.devices.find(d => d.id === el.id))
+            .filter(Boolean)
+            .sort((a, b) => a.x - b.x);
+        const defaultFrom = selected.find(d => d.outputs.length) || sorted.find(d => d.outputs.length) || sorted[0];
+        const defaultTo = selected.find(d => d !== defaultFrom && d.inputs.length)
+            || sorted.find(d => d !== defaultFrom && d.inputs.length && d.x >= defaultFrom.x)
+            || sorted.find(d => d !== defaultFrom) || sorted[0];
+        fromSel.value = defaultFrom.id;
+        toSel.value = defaultTo.id;
+        
+        this.updateAutoConnectPreview();
+        document.getElementById('autoConnectModal').classList.add('active');
+    },
+
+    hideAutoConnectModal() {
+        document.getElementById('autoConnectModal').classList.remove('active');
+        this.autoConnectPlan = null;
+    },
+
+    portSignalKey(port) {
+        const type = this.signalType(port);
+        if (type) return type;
+        const cable = (port.cable || '').trim().toUpperCase();
+        return cable ? `CABLE:${cable}` : '';
+    },
+
+    portNameKey(port) {
+        return String(port.name || '').toUpperCase().replace(/\b(IN|OUT|INPUT|OUTPUT|EINGANG|AUSGANG)\b/g, '').replace(/[^A-Z0-9]+/g, ' ').trim();
+    },
+
+    planAutoConnections(fromDevice, toDevice, allowGeneric, preferFiber) {
+        const plan = [];
+        if (!fromDevice || !toDevice || fromDevice.id === toDevice.id) return plan;
+        
+        const outputs = fromDevice.outputs.filter(p => !this.isPortUsed(fromDevice.id, p.id, null));
+        const inputs = toDevice.inputs.filter(p => !this.isPortUsed(toDevice.id, p.id, null));
+        const usedIn = new Set();
+        
+        const take = (out, inp, reason, rule) => {
+            usedIn.add(inp.id);
+            plan.push({ out, inp, reason, rule: rule || null });
+        };
+        const pass = (predicate, reason) => {
+            outputs.forEach(out => {
+                if (plan.some(p => p.out.id === out.id)) return;
+                const inp = inputs.find(i => !usedIn.has(i.id) && predicate(out, i));
+                if (inp) take(out, inp, reason);
             });
-            device.inputs.forEach(port => {
-                if (!port.connected) {
-                    unconnectedInputs.push({ device, port });
-                }
-            });
-        });
+        };
         
-        unconnectedOutputs.sort((a, b) => a.device.x - b.device.x);
-        unconnectedInputs.sort((a, b) => a.device.x - b.device.x);
-        
-        for (const output of unconnectedOutputs) {
-            let bestInput = null;
-            let bestDist = Infinity;
-            
-            for (let i = 0; i < unconnectedInputs.length; i++) {
-                const input = unconnectedInputs[i];
-                if (input.device.id === output.device.id) continue;
-                if (input.device.x <= output.device.x) continue;
-                if (input.port.connected) continue;
-                if (this.converterRuleFor(this.signalType(output.port), this.signalType(input.port))) continue;
-                
-                const dist = Math.abs(input.device.y - output.device.y);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    bestInput = { input, index: i };
-                }
-            }
-            
-            if (bestInput) {
-                this.createConnection(
-                    output.device.id, output.port.id,
-                    bestInput.input.device.id, bestInput.input.port.id
-                );
+        if (preferFiber && this.autoConverter) {
+            const rule = this.converterRuleFor('LC', 'CAT');
+            if (rule && this.findConverterTemplate(rule)) {
+                outputs.filter(o => this.signalType(o) === 'LC').forEach(out => {
+                    const inp = inputs.find(i => !usedIn.has(i.id) && this.signalType(i) === 'CAT');
+                    if (inp) take(out, inp, `Glasfaser über ${rule.template}`, rule);
+                });
             }
         }
+        
+        pass((o, i) => {
+            const oc = (o.cable || '').trim().toUpperCase();
+            return oc && oc === (i.cable || '').trim().toUpperCase();
+        }, 'gleicher Kabeltyp');
+        pass((o, i) => {
+            const k = this.portSignalKey(o);
+            return k && k === this.portSignalKey(i);
+        }, 'gleicher Signaltyp');
+        pass((o, i) => {
+            const k = this.portNameKey(o);
+            return k && !this.signalType(o) && !this.signalType(i) && k === this.portNameKey(i);
+        }, 'gleicher Anschlussname');
+        
+        if (this.autoConverter) {
+            outputs.forEach(out => {
+                if (plan.some(p => p.out.id === out.id)) return;
+                const oType = this.signalType(out);
+                if (!oType) return;
+                for (const inp of inputs) {
+                    if (usedIn.has(inp.id)) continue;
+                    const rule = this.converterRuleFor(oType, this.signalType(inp));
+                    if (rule && this.findConverterTemplate(rule)) {
+                        take(out, inp, `Konverter ${rule.from} → ${rule.to}`, rule);
+                        break;
+                    }
+                }
+            });
+        }
+        
+        if (allowGeneric) {
+            pass((o, i) => !this.signalType(o) && !this.signalType(i), 'freie Zuordnung');
+        }
+        
+        return plan;
+    },
+
+    updateAutoConnectPreview() {
+        const fromDevice = this.devices.find(d => d.id === document.getElementById('autoConnectFrom').value);
+        const toDevice = this.devices.find(d => d.id === document.getElementById('autoConnectTo').value);
+        const allowGeneric = document.getElementById('chkAutoConnectGeneric').checked;
+        const preferFiber = document.getElementById('chkAutoConnectFiber').checked;
+        const list = document.getElementById('autoConnectPreview');
+        const btn = document.getElementById('btnStartAutoConnect');
+        
+        this.autoConnectPlan = this.planAutoConnections(fromDevice, toDevice, allowGeneric, preferFiber);
+        
+        if (fromDevice && toDevice && fromDevice.id === toDevice.id) {
+            list.innerHTML = '<p class="hint">Start- und Endgerät müssen unterschiedlich sein.</p>';
+            btn.disabled = true;
+            return;
+        }
+        if (!this.autoConnectPlan.length) {
+            list.innerHTML = '<p class="hint">Keine passenden freien Anschlüsse zwischen den gewählten Geräten gefunden.</p>';
+            btn.disabled = true;
+            return;
+        }
+        btn.disabled = false;
+        list.innerHTML = this.autoConnectPlan.map((p, idx) => `
+            <label class="manage-item pdf-sheet-item">
+                <input type="checkbox" class="auto-connect-check" data-index="${idx}" checked>
+                <div class="manage-main">
+                    <div class="manage-name">${this.escapeHtml(p.out.name)} → ${this.escapeHtml(p.inp.name)}</div>
+                    <div class="manage-meta">${this.escapeHtml(p.reason)}${p.out.cable ? ` · ${this.escapeHtml(p.out.cable)}` : ''}</div>
+                </div>
+            </label>
+        `).join('');
+    },
+
+    startAutoConnectFromModal() {
+        const fromDevice = this.devices.find(d => d.id === document.getElementById('autoConnectFrom').value);
+        const toDevice = this.devices.find(d => d.id === document.getElementById('autoConnectTo').value);
+        const plan = this.autoConnectPlan || [];
+        const chosen = Array.from(document.querySelectorAll('#autoConnectPreview .auto-connect-check:checked'))
+            .map(chk => plan[parseInt(chk.dataset.index, 10)])
+            .filter(Boolean);
+        if (!fromDevice || !toDevice || !chosen.length) {
+            alert('Bitte mindestens eine Verbindung auswählen.');
+            return;
+        }
+        
+        this.hideAutoConnectModal();
+        let created = 0;
+        const before = this.connections.length;
+        chosen.forEach(p => {
+            this.createConnection(fromDevice.id, p.out.id, toDevice.id, p.inp.id);
+        });
+        created = this.connections.length - before;
+        this.updateConnections();
+        if (created === 0) alert('Es konnten keine Verbindungen erstellt werden.');
+    },
+
+    autoConnect() {
+        this.showAutoConnectModal();
     },
 
     clearConnections() {

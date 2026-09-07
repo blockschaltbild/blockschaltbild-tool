@@ -63,7 +63,9 @@ class BlockDiagramEditor {
         this.converterRules = [
             { from: 'HDMI', to: 'SDI', template: 'BiDi 12G' },
             { from: 'SDI', to: 'HDMI', template: 'BiDi 12G' },
-            { from: 'DP', to: 'HDMI', template: 'DP-HDMI Adapter' }
+            { from: 'DP', to: 'HDMI', template: 'DP-HDMI Adapter' },
+            { from: 'LC', to: 'CAT', template: 'CVT-10' },
+            { from: 'CAT', to: 'LC', template: 'CVT-10' }
         ];
         
         this.libraryKey = 'blockschaltbild.library.v1';
@@ -276,7 +278,32 @@ class BlockDiagramEditor {
     }
 
 
-    activateSheet(idx) {
+    showLoading(text, percent, detail) {
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay) return;
+        overlay.classList.add('active');
+        this.updateLoading(text, percent, detail);
+    }
+
+    updateLoading(text, percent, detail) {
+        const textEl = document.getElementById('loadingText');
+        const fill = document.getElementById('loadingBarFill');
+        const detailEl = document.getElementById('loadingDetail');
+        if (textEl && text !== undefined) textEl.textContent = text;
+        if (fill && percent !== undefined) fill.style.width = Math.max(0, Math.min(100, Math.round(percent))) + '%';
+        if (detailEl) detailEl.textContent = detail || '';
+    }
+
+    hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    nextFrame() {
+        return new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    }
+
+    prepareSheet(idx) {
         this.activeSheet = idx;
         const sheet = this.sheets[idx];
         this.devices = sheet.devices;
@@ -286,8 +313,48 @@ class BlockDiagramEditor {
         this.devicesLayer.innerHTML = '';
         this.connectionsLayer.innerHTML = '';
         this.textboxesLayer.innerHTML = '';
+    }
+
+    async activateSheetAsync(idx, onProgress) {
+        this.prepareSheet(idx);
+        const total = this.devices.length + this.connections.length + this.textboxes.length + 1;
+        let done = 0;
+        const chunk = 20;
+        const report = async (label) => {
+            if (onProgress) onProgress(done, total, label);
+            await this.nextFrame();
+        };
+        for (let i = 0; i < this.devices.length; i++) {
+            this.renderDevice(this.devices[i]);
+            done++;
+            if (done % chunk === 0) await report(`Geräte werden gezeichnet (${i + 1}/${this.devices.length})`);
+        }
+        await report(`Geräte gezeichnet (${this.devices.length})`);
+        this.bulkRender = true;
+        try {
+            for (let i = 0; i < this.connections.length; i++) {
+                this.renderConnection(this.connections[i]);
+                done++;
+                if (done % chunk === 0) await report(`Verbindungen werden gezeichnet (${i + 1}/${this.connections.length})`);
+            }
+        } finally {
+            this.bulkRender = false;
+        }
+        this.textboxes.forEach(t => this.renderTextbox(t));
+        done += this.textboxes.length;
+        await report('Kreuzungen werden berechnet …');
+        this.drawCrossingBridges();
+        done++;
+        this.renderSheetTabs();
+        if (onProgress) onProgress(done, total, 'Fertig');
+    }
+
+    activateSheet(idx) {
+        this.prepareSheet(idx);
         this.devices.forEach(d => this.renderDevice(d));
+        this.bulkRender = true;
         this.connections.forEach(c => this.renderConnection(c));
+        this.bulkRender = false;
         this.textboxes.forEach(t => this.renderTextbox(t));
         this.drawCrossingBridges();
         this.renderSheetTabs();
@@ -374,7 +441,7 @@ class BlockDiagramEditor {
 
 
     defaultCableTypes() {
-        return ['XLR', 'Klinke', 'Cinch', 'HDMI', 'SDI', 'DisplayPort', 'Cat5/6', 'Speakon', 'Powercon', 'DMX', 'Dante', 'AES/EBU', 'SPDIF', 'USB', 'Coax', 'Glasfaser'];
+        return ['XLR', 'Klinke', 'Cinch', 'HDMI', 'SDI', 'DisplayPort', 'Cat5/6', 'Speakon', 'Powercon', 'DMX', 'Dante', 'AES/EBU', 'SPDIF', 'USB', 'Coax', 'Glasfaser', 'Glasfaser LC/LC'];
     }
 
 

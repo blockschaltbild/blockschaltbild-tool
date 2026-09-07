@@ -45,6 +45,11 @@ const EventsMixin = {
         });
         
         document.getElementById('btnAutoConnect').addEventListener('click', () => this.autoConnect());
+        document.getElementById('btnCancelAutoConnect').addEventListener('click', () => this.hideAutoConnectModal());
+        document.getElementById('btnStartAutoConnect').addEventListener('click', () => this.startAutoConnectFromModal());
+        ['autoConnectFrom', 'autoConnectTo', 'chkAutoConnectGeneric', 'chkAutoConnectFiber'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => this.updateAutoConnectPreview());
+        });
         document.getElementById('btnCheckSignals').addEventListener('click', () => this.validateConnections());
         document.getElementById('chkAutoConverter').addEventListener('change', (e) => {
             this.autoConverter = e.target.checked;
@@ -159,11 +164,28 @@ const EventsMixin = {
         this.svg.addEventListener('mouseup', (e) => this.onMouseUp(e));
         this.svg.addEventListener('click', (e) => this.onClick(e));
         
+        this.svg.addEventListener('contextmenu', (e) => {
+            const deviceBlock = e.target.closest('.device-block');
+            if (!deviceBlock) return;
+            e.preventDefault();
+            const device = this.devices.find(d => d.id === deviceBlock.dataset.deviceId);
+            if (!device) return;
+            this.draggedDevice = null;
+            this.connectionStart = null;
+            this.showDeviceContextMenu(device, e.clientX, e.clientY);
+        });
+        document.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('#deviceContextMenu')) this.hideDeviceContextMenu();
+        });
+        window.addEventListener('resize', () => this.hideDeviceContextMenu());
+        document.querySelector('.canvas-wrapper')?.addEventListener('scroll', () => this.hideDeviceContextMenu());
+        
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Delete' && this.selectedElement) {
                 this.deleteSelected();
             }
             if (e.key === 'Escape') {
+                this.hideDeviceContextMenu();
                 this.cancelConnection();
                 this.hideDeviceModal();
                 this.hideGroupModal();

@@ -215,9 +215,17 @@ const ExportMixin = {
         const file = e.target.files[0];
         if (!file) return;
         
+        const sizeKb = Math.round(file.size / 1024);
+        this.showLoading('Projekt wird geladen …', 2, `Datei „${file.name}“ (${sizeKb} KB) wird gelesen`);
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onerror = () => {
+            this.hideLoading();
+            alert('Fehler beim Laden: Datei konnte nicht gelesen werden.');
+        };
+        reader.onload = async (event) => {
             try {
+                this.updateLoading('Projekt wird geladen …', 8, 'Projektdaten werden analysiert');
+                await this.nextFrame();
                 const data = JSON.parse(event.target.result);
                 this.devices = [];
                 this.connections = [];
@@ -238,6 +246,8 @@ const ExportMixin = {
                 this.projectAuthor = data.projectAuthor || '';
                 this.updateProjectDisplay();
                 
+                this.updateLoading('Projekt wird geladen …', 12, 'Bibliothek wird abgeglichen');
+                await this.nextFrame();
                 const merged = this.mergeIntoLibrary(data);
                 
                 if (data.lineStyle) {
@@ -280,7 +290,11 @@ const ExportMixin = {
                 
                 let active = typeof data.activeSheet === 'number' ? data.activeSheet : 0;
                 if (active < 0 || active >= this.sheets.length) active = 0;
-                this.activateSheet(active);
+                const sheetName = this.sheets[active].name;
+                await this.activateSheetAsync(active, (done, total, label) => {
+                    const pct = 15 + (done / Math.max(1, total)) * 75;
+                    this.updateLoading(`Blatt „${sheetName}“ wird aufgebaut …`, pct, label);
+                });
                 const messages = [];
                 if (merged && (merged.templates || merged.groups || merged.cables)) {
                     const mParts = [];
@@ -290,6 +304,8 @@ const ExportMixin = {
                     messages.push('Neu in die zentrale Bibliothek übernommen:\n' + mParts.join(', '));
                 }
                 if (this.autoConverter) {
+                    this.updateLoading('Projekt wird geladen …', 92, 'Signalprüfung läuft');
+                    await this.nextFrame();
                     const res = this.validateConnections(true);
                     if (res.inserted || res.removed || res.blocked) {
                         const parts = [];
@@ -299,8 +315,12 @@ const ExportMixin = {
                         messages.push('Signalprüfung nach dem Laden:\n' + parts.join('\n'));
                     }
                 }
+                this.updateLoading('Projekt geladen', 100, `${this.devices.length} Geräte, ${this.connections.length} Verbindungen`);
+                await this.nextFrame();
+                this.hideLoading();
                 if (messages.length) alert(messages.join('\n\n'));
             } catch (err) {
+                this.hideLoading();
                 alert('Fehler beim Laden: ' + err.message);
             }
         };

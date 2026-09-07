@@ -7,13 +7,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.02">
+    <link rel="stylesheet" href="styles.css?v=1.04">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="version.js?v=1.02"></script>
-    <script src="toolbar-menu.js?v=1.02"></script>
+    <script src="version.js?v=1.04"></script>
+    <script src="toolbar-menu.js?v=1.04"></script>
 </head>
 <body>
     <div class="app-container">
@@ -280,6 +280,28 @@
         </div>
     </div>
 
+    <div id="autoConnectModal" class="modal">
+        <div class="modal-content">
+            <h2>Auto-Verbinden</h2>
+            <p class="hint">Wählen Sie Start- und Endgerät. Die Verbindungen werden nach Signaltyp, Kabeltyp und Anschlussname automatisch zugeordnet; bei inkompatiblen Signalen wird (wenn aktiviert) ein Konverter eingefügt.</p>
+            <div class="form-row">
+                <label>Startgerät (Ausgänge)
+                    <select id="autoConnectFrom"></select>
+                </label>
+                <label>Endgerät (Eingänge)
+                    <select id="autoConnectTo"></select>
+                </label>
+            </div>
+            <label class="checkbox-row"><input type="checkbox" id="chkAutoConnectGeneric" checked> Auch Anschlüsse ohne erkennbaren Signaltyp der Reihe nach verbinden</label>
+            <label class="checkbox-row"><input type="checkbox" id="chkAutoConnectFiber"> Glasfaser bevorzugen (LC/LC-Ausgänge über CVT-10 auf Cat5/6-Eingänge)</label>
+            <div id="autoConnectPreview" class="manage-list"></div>
+            <div class="modal-buttons">
+                <button type="button" id="btnCancelAutoConnect">Abbrechen</button>
+                <button type="button" id="btnStartAutoConnect" class="primary">Verbinden</button>
+            </div>
+        </div>
+    </div>
+
     <div id="pdfExportModal" class="modal">
         <div class="modal-content">
             <h2>Plan als PDF exportieren</h2>
@@ -343,20 +365,29 @@
         </div>
     </div>
 
+    <div id="loadingOverlay" class="loading-overlay" aria-live="polite" aria-busy="true">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p id="loadingText" class="loading-text">Projekt wird geladen …</p>
+            <div class="loading-bar"><div id="loadingBarFill" class="loading-bar-fill"></div></div>
+            <p id="loadingDetail" class="loading-detail"></p>
+        </div>
+    </div>
+
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="logo.js?v=1.02"></script>
+    <script src="logo.js?v=1.04"></script>
     <script>
         document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
     </script>
-    <script src="app-core.js?v=1.02"></script>
-    <script src="app-library.js?v=1.02"></script>
-    <script src="app-canvas.js?v=1.02"></script>
-    <script src="app-connections.js?v=1.02"></script>
-    <script src="app-modals.js?v=1.02"></script>
-    <script src="app-export.js?v=1.02"></script>
-    <script src="app-events.js?v=1.02"></script>
-    <script src="app-bootstrap.js?v=1.02"></script>
+    <script src="app-core.js?v=1.04"></script>
+    <script src="app-library.js?v=1.04"></script>
+    <script src="app-canvas.js?v=1.04"></script>
+    <script src="app-connections.js?v=1.04"></script>
+    <script src="app-modals.js?v=1.04"></script>
+    <script src="app-export.js?v=1.04"></script>
+    <script src="app-events.js?v=1.04"></script>
+    <script src="app-bootstrap.js?v=1.04"></script>
 </body>
 </html>
