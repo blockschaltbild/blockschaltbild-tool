@@ -1001,6 +1001,8 @@ const ModalsMixin = {
 
     showImportChoiceModal() {
         document.getElementById('importUrlForm').style.display = 'none';
+        document.getElementById('importPasteBlock').style.display = 'none';
+        document.getElementById('importPasteText').value = '';
         document.getElementById('importChoiceCancelRow').style.display = '';
         document.getElementById('importChoiceModal').classList.add('active');
     },
@@ -1026,26 +1028,44 @@ const ModalsMixin = {
             alert('Kein Vermittler konfiguriert (bugreport-config.js). Website-Import ist nicht möglich.');
             return;
         }
-        this.hideImportChoiceModal();
-        document.getElementById('pdfImportTitle').textContent = 'Gerät aus Website importieren';
-        document.getElementById('pdfImportModal').classList.add('active');
-        document.getElementById('pdfAnalysisStatus').style.display = 'block';
-        document.getElementById('pdfAnalysisStatus').querySelector('p').textContent = 'Lese Produktseite...';
-        document.getElementById('pdfDeviceForm').style.display = 'none';
+        const pasted = (document.getElementById('importPasteText').value || '').trim();
+        const showForm = (text, title) => {
+            this.hideImportChoiceModal();
+            document.getElementById('pdfImportTitle').textContent = 'Gerät aus Website importieren';
+            document.getElementById('pdfImportModal').classList.add('active');
+            document.getElementById('pdfAnalysisStatus').style.display = 'none';
+            const deviceInfo = this.analyzeWebsiteText(text || '', title || '', url)
+                || this.analyzeGenericDatasheet(text || '', (title || url) + '.pdf');
+            if (!deviceInfo.name) deviceInfo.name = title || '';
+            deviceInfo.article = '';
+            this.showPdfDeviceForm(deviceInfo);
+        };
+
+        if (pasted) {
+            showForm(pasted, pasted.split('\n').map(l => l.trim()).find(l => l.length > 3) || '');
+            return;
+        }
+
+        const hint = document.getElementById('importPasteHint');
+        hint.textContent = 'Lese Produktseite...';
+        document.getElementById('importPasteBlock').style.display = 'block';
+        document.getElementById('importPasteText').style.display = 'none';
 
         try {
             const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(url)}`);
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
-            const deviceInfo = this.analyzeWebsiteText(data.text || '', data.title || '', data.url || url)
-                || this.analyzeGenericDatasheet(data.text || '', (data.title || url) + '.pdf');
-            if (!deviceInfo.name) deviceInfo.name = data.title || '';
-            deviceInfo.article = '';
-            this.showPdfDeviceForm(deviceInfo);
+            document.getElementById('importPasteBlock').style.display = 'none';
+            showForm(data.text, data.title);
         } catch (err) {
             console.error('Website-Import Fehler:', err);
-            alert('Website konnte nicht ausgelesen werden: ' + err.message);
-            this.hidePdfImportModal();
+            const blocked = /403|blockiert/i.test(err.message);
+            hint.textContent = (blocked
+                ? 'Diese Website blockiert automatische Abrufe (z. B. thomann.de). '
+                : 'Website konnte nicht ausgelesen werden (' + err.message + '). ')
+                + 'Alternative: Seitentext unten einfügen und erneut auf „Seite auslesen" klicken.';
+            document.getElementById('importPasteText').style.display = 'block';
+            document.getElementById('importPasteText').focus();
         }
     },
 

@@ -3,6 +3,11 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.15 – 2026-09-07
+
+- Website-Import: Wenn eine Produktseite automatische Abrufe blockiert (z. B. thomann.de, HTTP 403), erscheint statt einer Fehlermeldung ein Textfeld. Der Seitentext kann dort manuell eingefügt und mit „Seite auslesen" analysiert werden.
+- Website-Import: Fehlermeldung unterscheidet jetzt zwischen blockierter Seite und sonstigen Abruffehlern.
+
 ## Version 1.14 – 2026-09-07
 
 ### Geräte-Import per Website-Adresse (neu)
