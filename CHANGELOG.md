@@ -3,6 +3,13 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.16 – 2026-09-07
+
+- Website-Import lernt selbstständig dazu: Nach dem Auslesen der angegebenen Seite sucht das Tool im Hintergrund nach weiteren Quellen (Hersteller bevorzugt), liest bis zu drei zusätzliche Seiten aus und übernimmt das vollständigste Ergebnis. Die verwendeten Quellen stehen im Fenstertitel.
+- Fortschrittsanzeige (Balken + Schritt 1/3 … 3/3) während Abruf, Suche und Auswertung.
+- Fehlermeldungen erscheinen erst nach Abschluss aller Schritte und nur, wenn keine einzige Quelle ausgelesen werden konnte.
+- Vermittler: neuer Endpoint `/search` (Websuche); Browser-Fallback über Reader-Dienst, falls die Suche vom Vermittler blockiert wird.
+
 ## Version 1.15.1 – 2026-09-07
 
 - Website-Import: Funkempfänger werden erkannt (z. B. Shure SLXD4Q+): n× XLR OUT + n× Klinke OUT, Ethernet-Ports einzeln (LAN 1, LAN 2), Antenne A/B als Eingang und Loop-Ausgang (Coax). Typ „Funkempfänger".

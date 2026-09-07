@@ -1003,6 +1003,8 @@ const ModalsMixin = {
         document.getElementById('importUrlForm').style.display = 'none';
         document.getElementById('importPasteBlock').style.display = 'none';
         document.getElementById('importPasteText').value = '';
+        document.getElementById('importProgressWrap').style.display = 'none';
+        document.getElementById('importProgressBar').style.width = '0%';
         document.getElementById('importChoiceCancelRow').style.display = '';
         document.getElementById('importChoiceModal').classList.add('active');
     },
@@ -1047,34 +1049,132 @@ const ModalsMixin = {
         }
 
         const hint = document.getElementById('importPasteHint');
-        hint.textContent = 'Lese Produktseite...';
+        const bar = document.getElementById('importProgressBar');
+        const barWrap = document.getElementById('importProgressWrap');
+        const progress = (pct, msg) => { bar.style.width = Math.round(pct) + '%'; hint.textContent = msg; };
+        hint.style.color = '';
+        barWrap.style.display = 'block';
         document.getElementById('importPasteBlock').style.display = 'block';
         document.getElementById('importPasteText').style.display = 'none';
+        document.getElementById('importUrlSubmit').disabled = true;
+
+        const errors = [];
+        const candidates = [];
+        const analyze = (text, title, srcUrl) => {
+            const d = this.analyzeWebsiteText(text || '', title || '', srcUrl)
+                || this.analyzeGenericDatasheet(text || '', (title || srcUrl) + '.pdf');
+            if (!d) return null;
+            if (!d.name) d.name = title || '';
+            d.article = '';
+            d._source = srcUrl;
+            d._score = (d.inputs || []).length + (d.outputs || []).length + (d.type && d.type !== 'Gerät' ? 2 : 0);
+            return d;
+        };
+        const fetchPage = async (u) => {
+            const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(u)}`);
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) return data;
+            // Seite blockiert den Vermittler (z. B. thomann.de): Reader-Dienst direkt aus dem Browser nutzen
+            const rr = await fetch('https://r.jina.ai/' + u, { headers: { 'X-Return-Format': 'markdown' } });
+            if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
+            let text = await rr.text();
+            const t = text.match(/^Title:\s*(.+)$/m);
+            text = text.replace(/^(Title|URL Source|Markdown Content):.*$/gm, '')
+                .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+                .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+                .replace(/^[#>*\-]+\s*/gm, '');
+            return { text, title: t ? t[1].trim() : '' };
+        };
 
         try {
-            const res = await fetch(`${endpoint.replace(/\/$/, '')}/fetch?url=${encodeURIComponent(url)}`);
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.ok) {
-                // Seite blockiert den Vermittler (z. B. thomann.de): Reader-Dienst direkt aus dem Browser nutzen
-                hint.textContent = 'Seite blockiert den direkten Abruf – versuche Reader-Dienst...';
-                const rr = await fetch('https://r.jina.ai/' + url, { headers: { 'X-Return-Format': 'text' } });
-                if (!rr.ok) throw new Error(data.error || `Vermittler antwortet mit ${res.status}`);
-                const text = await rr.text();
-                const t = text.match(/^Title:\s*(.+)$/m);
-                data.text = text;
-                data.title = t ? t[1].trim() : (document.title || '');
+            progress(5, 'Schritt 1/3: Lese Produktseite...');
+            let primary = null;
+            try {
+                const data = await fetchPage(url);
+                primary = analyze(data.text, data.title, url);
+                if (primary) candidates.push(primary);
+            } catch (err) { errors.push(`${new URL(url).host}: ${err.message}`); }
+            progress(30, 'Schritt 2/3: Suche weitere Quellen im Web...');
+
+            // Suchbegriff: erkannter Gerätename oder letzter URL-Teil
+            let query = primary && primary.name ? primary.name : url.replace(/^https?:\/\/[^/]+\//, '').replace(/[-_/.]+/g, ' ').replace(/\b(htm|html|php|products?|de|en)\b/g, ' ');
+            query = query.replace(/\s+/g, ' ').trim().split(' ').slice(0, 6).join(' ');
+            const results = await this.searchWeb(query + ' technische daten', endpoint, errors);
+
+            const srcHost = new URL(url).host.replace(/^www\./, '');
+            const brand = (query.split(' ')[0] || '').toLowerCase();
+            const skip = /youtube|facebook|instagram|ebay|amazon|idealo|geizhals|wikipedia|reddit|\.pdf$/i;
+            // Nur Treffer, die eine Modellbezeichnung (Token mit Ziffer) aus dem Suchbegriff enthalten
+            const modelTokens = query.split(' ').filter(t => /\d/.test(t) && t.length >= 3).map(t => t.toLowerCase().replace(/[^a-z0-9]/g, ''));
+            const matchesModel = r => !modelTokens.length || modelTokens.some(t => (r.title + ' ' + r.url).toLowerCase().replace(/[^a-z0-9]/g, '').includes(t));
+            const others = results
+                .filter(r => !skip.test(r.url) && matchesModel(r) && new URL(r.url).host.replace(/^www\./, '') !== srcHost)
+                .sort((a, b) => (b.url.toLowerCase().includes(brand) ? 1 : 0) - (a.url.toLowerCase().includes(brand) ? 1 : 0))
+                .slice(0, 3);
+
+            for (let i = 0; i < others.length; i++) {
+                const host = new URL(others[i].url).host.replace(/^www\./, '');
+                progress(40 + i * 18, `Schritt 3/3: Lese Quelle ${i + 1}/${others.length} (${host})...`);
+                try {
+                    const data = await fetchPage(others[i].url);
+                    const d = analyze(data.text, data.title || others[i].title, others[i].url);
+                    if (d) candidates.push(d);
+                } catch (err) { errors.push(`${host}: ${err.message}`); }
             }
+            progress(100, 'Auswertung abgeschlossen.');
+
+            if (!candidates.length) throw new Error(errors.join(' | ') || 'Keine auswertbaren Daten gefunden');
+            // Vollständigstes Ergebnis nehmen; Name/Typ bevorzugt von der angegebenen Seite
+            candidates.sort((a, b) => b._score - a._score);
+            const best = candidates[0];
+            if (primary && primary.name) best.name = primary.name;
+            if (best.type === 'Gerät' && primary && primary.type !== 'Gerät') best.type = primary.type;
+            const sources = [...new Set(candidates.map(c => new URL(c._source).host.replace(/^www\./, '')))];
+            best._sources = sources;
+            delete best._source; delete best._score;
             document.getElementById('importPasteBlock').style.display = 'none';
-            showForm(data.text, data.title);
+            barWrap.style.display = 'none';
+            this.hideImportChoiceModal();
+            document.getElementById('pdfImportTitle').textContent = 'Gerät aus Website importieren (Quellen: ' + sources.join(', ') + ')';
+            document.getElementById('pdfImportModal').classList.add('active');
+            document.getElementById('pdfAnalysisStatus').style.display = 'none';
+            this.showPdfDeviceForm(best);
         } catch (err) {
             console.error('Website-Import Fehler:', err);
-            const blocked = /403|blockiert/i.test(err.message);
-            hint.textContent = (blocked
-                ? 'Diese Website blockiert automatische Abrufe (z. B. thomann.de). '
-                : 'Website konnte nicht ausgelesen werden (' + err.message + '). ')
+            hint.style.color = '#c0392b';
+            barWrap.style.display = 'none';
+            hint.textContent = 'Keine Quelle konnte ausgelesen werden (' + err.message + '). '
                 + 'Alternative: Seitentext unten einfügen und erneut auf „Seite auslesen" klicken.';
             document.getElementById('importPasteText').style.display = 'block';
             document.getElementById('importPasteText').focus();
+        } finally {
+            document.getElementById('importUrlSubmit').disabled = false;
+        }
+    },
+
+    // Websuche: zuerst Vermittler (/search), sonst DuckDuckGo-Ergebnisseite über den Reader-Dienst aus dem Browser
+    async searchWeb(query, endpoint, errors) {
+        try {
+            const sr = await fetch(`${endpoint.replace(/\/$/, '')}/search?q=${encodeURIComponent(query)}`);
+            const sd = await sr.json().catch(() => ({}));
+            if (sr.ok && sd.ok && (sd.results || []).length) return sd.results;
+        } catch (err) { /* Fallback folgt */ }
+        try {
+            const rr = await fetch('https://r.jina.ai/https://html.duckduckgo.com/html/?kl=de-de&q=' + encodeURIComponent(query), { headers: { 'X-Return-Format': 'text' } });
+            if (!rr.ok) throw new Error('Reader ' + rr.status);
+            const lines = (await rr.text()).split('\n');
+            const results = [];
+            for (let i = 1; i < lines.length && results.length < 10; i++) {
+                const l = lines[i].trim();
+                if (/^[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(l) && lines[i - 1].trim()) {
+                    results.push({ url: 'https://' + l, title: lines[i - 1].trim().replace(/^PDF\s+/, '') });
+                }
+            }
+            if (!results.length) throw new Error('keine Treffer');
+            return results;
+        } catch (err) {
+            errors.push('Websuche: ' + err.message);
+            return [];
         }
     },
 
