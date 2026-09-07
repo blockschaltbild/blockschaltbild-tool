@@ -11,6 +11,9 @@ Object.assign(
 document.addEventListener('DOMContentLoaded', () => {
     window.editor = new BlockDiagramEditor();
     
+    const versionEl = document.getElementById('appVersion');
+    if (versionEl && typeof APP_VERSION !== 'undefined') versionEl.textContent = APP_VERSION;
+    
     document.querySelector('.canvas-wrapper').addEventListener('dragover', (e) => {
         e.preventDefault();
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';

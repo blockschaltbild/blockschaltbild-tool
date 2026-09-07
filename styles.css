@@ -361,6 +361,19 @@ input[type="checkbox"] {
     display: none;
 }
 
+.sidebar-footer {
+    padding: 8px 18px;
+    border-top: 1.5px solid var(--ict-border);
+    font-size: 11px;
+    color: var(--ict-muted);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.sidebar.collapsed .sidebar-footer {
+    display: none;
+}
+
 .sidebar.collapsed .toggle-sidebar {
     transform: rotate(180deg);
 }
