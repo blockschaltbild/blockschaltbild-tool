@@ -3,6 +3,28 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.16.7 – 2026-09-08
+
+- Datenblatt-Import: Neuer Parser für Datenblätter mit Ein-/Ausgangs-Tabelle (z. B. PureLink PT-HDBT-1020C-RX): Zeilen „Eingänge 1x HDBT (RJ45)", „Ausgänge 1x USB 3.2 Gen1 (USB-C)", „Inputs 2x HDMI, 1x DP" werden direkt in Anschlüsse übersetzt (Zähler „Nx" pro Eintrag, Steckertyp aus Beschreibung vor Klammer). Ergebnis: Name „HDBaseT 3.0 USB-C Video- und Daten-Receiver", Artikel „PT-HDBT-1020C-RX", Typ Receiver, Gruppe Video, 1 Eingang HDBaseT (Cat5/6), 1 Ausgang USB-C – statt bisher „PureLink HDCP 2" mit erfundenen HDMI-Ports.
+- Steckerliste: HDBaseT wird als eigener Anschluss „HDBaseT" (Kabel Cat5/6) erkannt statt als LAN; USB-C zählt als Video-/Datenanschluss (Kabel USB), USB-A/-B, RS232 und IR weiterhin nicht.
+- Modellkennungen mit mehreren Bindestrichen (PT-HDBT-1020C-RX) werden als Modell/Artikel erkannt; Produktbeschreibung unter der Modellkennung wird als Gerätename übernommen. Typerkennung um Receiver/Transmitter/Extender/Switch/Converter/Splitter aus der Kopfzeile ergänzt.
+- Der neue Parser greift auch beim Website-Import (Produktseiten und Web-PDFs mit derselben Tabellenform).
+
+## Version 1.16.6 – 2026-09-08
+
+- Import-Fenster: Neues optionales Feld „Gerätebezeichnung" (z. B. „Yamaha DM3"), gilt für Datei-Upload (PDF) und Website-Adresse.
+- Die Bezeichnung steuert die Analyse: Websuche sucht gezielt nach „<Bezeichnung> technisches Datenblatt"; Suchtreffer und ausgelesene Quellen (Seiten wie PDFs) ohne diese Modellkennung werden verworfen, damit keine Daten fremder Geräte einfließen. Der Gerätename wird auf die Bezeichnung gesetzt.
+- Enthält das hochgeladene Datenblatt bzw. die angegebene Seite die Modellkennung nicht, wird das Ergebnis als unsicher behandelt (Anschlüsse bevorzugt aus passenden Web-Quellen) und im Fenstertitel darauf hingewiesen.
+
+## Version 1.16.5 – 2026-09-08
+
+- Website-Import arbeitet jetzt nach dem Ansatz des Datenblatt-Imports: Die angegebene Seite (oder ein verlinktes PDF) wird mit derselben Parserkette ausgewertet (Produktseite > Display-Datenblatt > Hersteller-Datenblatt; Schlüsselwort-Schätzung nur als schwacher Fallback), anschließend werden die Angaben per Websuche ergänzt und alle belastbaren Treffer zusammengeführt – Angaben der angegebenen Seite haben Vorrang, Lücken füllen die Web-Quellen.
+- Websuche (PDF- und Website-Import): Es wird immer zuerst nach „<Gerät> technisches Datenblatt" gesucht, danach nach „technische Daten" und „datasheet specifications", bis mindestens 10 passende weitere Treffer vorliegen (bisher 3). Vermittler und Reader-Fallback liefern bis zu 20 Treffer pro Suche. Herstellerseiten und PDF-Datenblätter werden bevorzugt, Shops/Social Media weiterhin ausgeschlossen, die Ausgangsseite wird nicht doppelt gezählt.
+- PDF-Datenblätter aus Suchtreffern werden nicht mehr übersprungen, sondern geladen (pdf.js, bei CORS-Sperre über den Reader-Dienst) und mit den Datenblatt-Parsern (ICT/Display/Hersteller) ausgelesen.
+- Quellen werden parallel (3 gleichzeitig) geladen; Statustext zeigt den Fortschritt („Schritt 3/3: Lese 10 Quellen (4/10, zuletzt yamaha.com)...").
+- Hersteller wird bei Web-Quellen aus Titel/Kopfzeilen bzw. „Hersteller: X" ergänzt (z. B. „Yamaha DM3" statt „DM3"); Fenstertitel nennt genutzte und zusätzlich geprüfte Quellen.
+- Hinweis: Der Vermittler (`relay/worker.js`) muss neu veröffentlicht werden, damit die Suche 20 statt 10 Treffer liefert; ohne Neuveröffentlichung greift die Mindestzahl über die zusätzlichen Suchvarianten.
+
 ## Version 1.16.4 – 2026-09-07
 
 - Website-Import: Warteanzeige übernommen vom Datenblatt-Import – das Import-Fenster öffnet sich sofort mit Spinner und Statustext („Schritt 1/3: Lese Produktseite…“, „Schritt 3/3: Lese Quelle 2/3 (host)…“). Der bisherige Fortschrittsbalken im Adress-Formular entfällt.

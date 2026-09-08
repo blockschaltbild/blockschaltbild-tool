@@ -33,6 +33,7 @@ const EventsMixin = {
         
         document.getElementById('btnImportDevices').addEventListener('click', () => this.showImportChoiceModal());
         document.getElementById('btnImportChoiceFile').addEventListener('click', () => {
+            this._importHint = this.importDeviceHint();
             this.hideImportChoiceModal();
             document.getElementById('fileImportDevices').click();
         });

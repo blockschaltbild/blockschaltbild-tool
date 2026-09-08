@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockschaltbild Editor</title>
-    <link rel="icon" type="image/png" href="favicon.png?v=1.16">
+    <link rel="icon" type="image/png" href="favicon.png?v=1.16.7">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#4d49bc">
     <meta name="application-name" content="Blockschaltbild Editor">
@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.16">
+    <link rel="stylesheet" href="styles.css?v=1.16.7">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="version.js?v=1.16"></script>
-    <script src="bugreport-config.js?v=1.16"></script>
-    <script src="toolbar-menu.js?v=1.16"></script>
+    <script src="version.js?v=1.16.7"></script>
+    <script src="bugreport-config.js?v=1.16.7"></script>
+    <script src="toolbar-menu.js?v=1.16.7"></script>
 </head>
 <body>
     <div class="app-container">
@@ -403,6 +403,9 @@
         <div class="modal-content">
             <h2>Geräte importieren</h2>
             <p>Wie möchtest du das Gerät anlegen?</p>
+            <label style="display:block;margin-bottom:10px">Gerätebezeichnung (optional, z. B. „Yamaha DM3“):
+                <input type="text" id="importDeviceHint" placeholder="Hersteller und Modell – hilft, das richtige Gerät im Datenblatt und im Web zu finden" style="width:100%;box-sizing:border-box">
+            </label>
             <div class="modal-buttons" style="flex-direction:column;align-items:stretch;gap:8px">
                 <button type="button" id="btnImportChoiceFile" title="Datenblatt-PDF, Excel- oder Textdatei hochladen">Datei hochladen (PDF / Excel / TXT)</button>
                 <button type="button" id="btnImportChoiceUrl" title="Produktseite eines Händlers oder Herstellers angeben">Website-Adresse angeben</button>
@@ -526,21 +529,21 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="logo.js?v=1.16"></script>
+    <script src="logo.js?v=1.16.7"></script>
     <script>
         document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
     </script>
-    <script src="app-core.js?v=1.16"></script>
-    <script src="app-library.js?v=1.16"></script>
-    <script src="app-canvas.js?v=1.16"></script>
-    <script src="app-connections.js?v=1.16"></script>
-    <script src="app-modals.js?v=1.16"></script>
-    <script src="app-export.js?v=1.16"></script>
-    <script src="app-history.js?v=1.16"></script>
-    <script src="app-shortcuts.js?v=1.16"></script>
-    <script src="app-events.js?v=1.16"></script>
-    <script src="app-bugreport.js?v=1.16"></script>
-    <script src="app-bootstrap.js?v=1.16"></script>
-    <script src="app-pwa.js?v=1.16"></script>
+    <script src="app-core.js?v=1.16.7"></script>
+    <script src="app-library.js?v=1.16.7"></script>
+    <script src="app-canvas.js?v=1.16.7"></script>
+    <script src="app-connections.js?v=1.16.7"></script>
+    <script src="app-modals.js?v=1.16.7"></script>
+    <script src="app-export.js?v=1.16.7"></script>
+    <script src="app-history.js?v=1.16.7"></script>
+    <script src="app-shortcuts.js?v=1.16.7"></script>
+    <script src="app-events.js?v=1.16.7"></script>
+    <script src="app-bugreport.js?v=1.16.7"></script>
+    <script src="app-bootstrap.js?v=1.16.7"></script>
+    <script src="app-pwa.js?v=1.16.7"></script>
 </body>
 </html>
