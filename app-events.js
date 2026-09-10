@@ -217,7 +217,8 @@ const EventsMixin = {
             const tag = (e.target.tagName || '').toLowerCase();
             const inField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
             if (!inField && this.handleShortcutKey(e)) return;
-            if (e.key === 'Delete' && this.selectedElement) {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedElement) {
+                e.preventDefault();
                 this.deleteSelected();
             }
             if (this.readOnly && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {

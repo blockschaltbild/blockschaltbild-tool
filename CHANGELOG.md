@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.21.1 – 2026-09-10
+
+- **Löschen mit Backspace:** Ein markiertes Gerät (bzw. markierte Verbindung/Textfeld) kann jetzt auch mit der Rücktaste (Backspace) gelöscht werden, nicht nur mit Entf.
+
 ## Version 1.21.0 – 2026-09-10
 
 - **Ein-/Ausgänge per Drag & Drop umsortieren:** Beim Anlegen und Bearbeiten von Geräten (Geräte-Dialog im Tool sowie Gerätebibliothek-Verwaltung) können Eingänge und Ausgänge jetzt über den Griff „⋮⋮" links neben dem Feld per Drag & Drop in eine andere Reihenfolge gebracht werden. Die Nummerierung wird dabei automatisch angepasst.

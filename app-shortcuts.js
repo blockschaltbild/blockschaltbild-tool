@@ -10,7 +10,7 @@ const ShortcutsMixin = {
                 { label: 'Wiederherstellen', combos: [{ mod: true, keys: ['y'] }, { mod: true, shift: true, keys: ['z'] }], run: () => this.redo() },
                 { label: 'Markiertes Gerät kopieren', combos: [{ mod: true, keys: ['c'] }], run: () => this.copySelectedDevice() },
                 { label: 'Gerät einfügen', combos: [{ mod: true, keys: ['v'] }], run: () => this.pasteDevice() },
-                { label: 'Markiertes Element löschen', combos: [{ keys: ['Delete'] }], info: true },
+                { label: 'Markiertes Element löschen', combos: [{ keys: ['Delete'] }, { keys: ['Backspace'] }], info: true },
                 { label: 'Dialog schließen / Verbindung abbrechen', combos: [{ keys: ['Escape'] }], info: true }
             ]},
             { section: 'Geräte', items: [
@@ -71,7 +71,7 @@ const ShortcutsMixin = {
 
     comboLabel(combo) {
         const mac = this.isMacPlatform();
-        const names = { Delete: 'Entf', Escape: 'Esc', '+': '+', '-': '−', '/': '/' };
+        const names = { Delete: 'Entf', Backspace: 'Rücktaste', Escape: 'Esc', '+': '+', '-': '−', '/': '/' };
         const parts = [];
         if (combo.mod) parts.push(mac ? '⌘' : 'Strg');
         if (combo.shift) parts.push(mac ? '⇧' : 'Umschalt');
