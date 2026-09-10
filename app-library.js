@@ -5,6 +5,11 @@ const LibraryMixin = {
         this.groups.forEach(g => {
             filter.innerHTML += `<option value="${g.id}">${g.name}</option>`;
         });
+        // Gruppen-Dropdowns in den Geräte-Dialogen (Bearbeiten/Anlegen und Import)
+        // mit dem aktuellen Stand abgleichen, damit neu angelegte oder umbenannte
+        // Gruppen sofort zur Auswahl stehen.
+        if (typeof this.updateDeviceGroupSelect === 'function') this.updateDeviceGroupSelect();
+        if (typeof this.updateImportGroupSelect === 'function') this.updateImportGroupSelect();
     },
 
     defaultTemplates() {

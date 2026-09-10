@@ -533,6 +533,18 @@ const ModalsMixin = {
 
     updateDeviceGroupSelect() {
         const select = document.getElementById('deviceGroup');
+        if (!select) return;
+        const current = select.value;
+        select.innerHTML = this.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+        if (this.groups.some(g => g.id === current)) select.value = current;
+    },
+
+    // Gruppenauswahl im Geräteimport (Datenblatt/Website/PDF) aus der aktuellen
+    // Bibliothek aufbauen – sonst blieben dort die fest im HTML hinterlegten
+    // Standardgruppen stehen und neue/umbenannte Gruppen wären nicht wählbar.
+    updateImportGroupSelect() {
+        const select = document.getElementById('pdfDeviceGroup');
+        if (!select) return;
         const current = select.value;
         select.innerHTML = this.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
         if (this.groups.some(g => g.id === current)) select.value = current;
@@ -1130,6 +1142,7 @@ const ModalsMixin = {
     },
 
     showImportChoiceModal() {
+        this.updateImportGroupSelect();
         document.getElementById('importUrlForm').style.display = 'none';
         document.getElementById('importPasteBlock').style.display = 'none';
         document.getElementById('importPasteText').value = '';
@@ -2208,8 +2221,10 @@ const ModalsMixin = {
         document.getElementById('pdfDeviceName').value = deviceInfo.name;
         document.getElementById('pdfDeviceArticle').value = deviceInfo.article;
         document.getElementById('pdfDeviceType').value = deviceInfo.type;
-        document.getElementById('pdfDeviceGroup').value = deviceInfo.group;
-        document.getElementById('pdfDeviceColor').value = this.groupColor(deviceInfo.group);
+        this.updateImportGroupSelect();
+        const groupSelect = document.getElementById('pdfDeviceGroup');
+        groupSelect.value = this.groups.some(g => g.id === deviceInfo.group) ? deviceInfo.group : (groupSelect.value || this.groups[0]?.id || 'other');
+        document.getElementById('pdfDeviceColor').value = this.groupColor(groupSelect.value);
         
         document.getElementById('pdfInputsList').innerHTML = '';
         document.getElementById('pdfOutputsList').innerHTML = '';

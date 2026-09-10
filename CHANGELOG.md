@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.28.2 – 2026-09-10
+
+- Fehlerbehebung: Beim Geräteimport (Datenblatt/Website/PDF) zeigte die Auswahlliste „Gruppe" fest die fünf Standardgruppen (Ton, Video, Licht, Steuerung, Sonstiges). In der Geräteverwaltung neu angelegte oder umbenannte Gruppen fehlten dort bzw. gelöschte wurden weiter angezeigt. Die Auswahl wird jetzt aus der aktuellen (zentralen) Bibliothek aufgebaut und ist damit immer aktuell.
+
 ## Version 1.28.1 – 2026-09-10
 
 - Offline-Start: `app-pwa.js` fehlte in der Dateiliste des Service Workers und wurde ergänzt.
