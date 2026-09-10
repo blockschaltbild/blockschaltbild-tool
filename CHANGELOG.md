@@ -3,6 +3,19 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.21.0 – 2026-09-10
+
+- **Ein-/Ausgänge per Drag & Drop umsortieren:** Beim Anlegen und Bearbeiten von Geräten (Geräte-Dialog im Tool sowie Gerätebibliothek-Verwaltung) können Eingänge und Ausgänge jetzt über den Griff „⋮⋮" links neben dem Feld per Drag & Drop in eine andere Reihenfolge gebracht werden. Die Nummerierung wird dabei automatisch angepasst.
+
+## Version 1.20.6 – 2026-09-10
+
+- **Ein CVT-10 versorgt mehrere Cat5/6-Eingänge:** Ein LC/LC-Ausgang wird über *einen* automatisch eingefügten CVT-10 auf so viele Cat5/6-Eingänge des Zielgeräts geführt, wie der Konverter Cat5/6-Ausgänge hat (bisher wurde pro Eingang ein neuer CVT-10 eingefügt). Gilt für Auto-Verbinden („Glasfaser bevorzugen" und Konverter-Zuordnung) sowie für manuell gezogene Verbindungen: Wird von einem bereits belegten LC/LC-Ausgang eine weitere Verbindung auf einen Cat5/6-Eingang gezogen, wird der dort hängende CVT-10 mitgenutzt, solange er freie Cat5/6-Ausgänge hat.
+- Standard-Vorlage CVT-10 (ohne zentrale Bibliothek) hat jetzt 8 Cat5/6-Ausgänge.
+
+## Version 1.20.5 – 2026-09-10
+
+- Auto-Konverter LC/LC ↔ Cat5/6: Es wird jetzt gezielt der bestehende **CVT-10 Signalkonverter (Artikel-Nr. 1022136)** aus der Gerätebibliothek zwischengeschaltet (statt der alten Vorlage „CVT-10 Medienkonverter"). Konverter-Regeln können dafür eine Artikel-Nr. angeben; die Suche bevorzugt Artikel-Nr., dann exakten Namen, dann Namens-/Typ-Teiltreffer. Standard-Vorlage entsprechend auf Signalkonverter / 1022136 umgestellt.
+
 ## Version 1.20.4 – 2026-09-10
 
 - Button „Drucken" aus dem Menü „Datei" entfernt.

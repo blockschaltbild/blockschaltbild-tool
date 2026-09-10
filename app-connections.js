@@ -147,12 +147,45 @@ const ConnectionsMixin = {
             const outTypes = template.outputs.map((n, i) => this.normalizeSignal(template.outputCables?.[i] || n));
             return inTypes.includes(rule.from) && outTypes.includes(rule.to);
         };
-        const named = this.deviceTemplates.find(t => t.name === rule.template && matches(t));
-        return named || this.deviceTemplates.find(matches) || null;
+        const norm = (v) => String(v || '').trim().toLowerCase();
+        const candidates = this.deviceTemplates.filter(matches);
+        if (rule.article) {
+            const byArticle = candidates.find(t => norm(t.article) === norm(rule.article));
+            if (byArticle) return byArticle;
+        }
+        const wanted = norm(rule.template);
+        const exact = candidates.find(t => norm(t.name) === wanted);
+        if (exact) return exact;
+        const partial = candidates.find(t => norm(t.name).includes(wanted) || norm(t.type).includes(wanted));
+        return partial || candidates[0] || null;
     },
 
     findPortBySignal(ports, type) {
         return ports.find(p => !p.connected && this.signalType(p) === type) || null;
+    },
+
+    converterCapacity(template, rule) {
+        if (!template || !rule) return 1;
+        const outs = (template.outputs || []).filter((n, i) => this.normalizeSignal(template.outputCables?.[i] || n) === rule.to);
+        return Math.max(1, outs.length);
+    },
+
+    // Liefert einen bereits am Ausgang haengenden Konverter (z.B. CVT-10), der noch
+    // freie Ausgaenge des gewuenschten Typs hat, damit ein LC-Ausgang mehrere
+    // Cat5/6-Eingaenge ueber denselben Konverter versorgen kann.
+    findSharedConverter(fromDeviceId, fromPortId, rule) {
+        if (!rule) return null;
+        const conn = this.connections.find(c => c.fromDevice === fromDeviceId && c.fromPort === fromPortId);
+        if (!conn) return null;
+        const converter = this.devices.find(d => d.id === conn.toDevice);
+        if (!converter || converter.placeholder) return null;
+        const convIn = converter.inputs.find(p => p.id === conn.toPort);
+        if (!convIn || this.signalType(convIn) !== rule.from) return null;
+        const hasOutType = converter.outputs.some(p => this.signalType(p) === rule.to);
+        if (!hasOutType) return null;
+        const freeOuts = converter.outputs.filter(p => this.signalType(p) === rule.to && !this.isPortUsed(converter.id, p.id, null));
+        if (!freeOuts.length) return null;
+        return { converter, out: freeOuts[0], freeOuts };
     },
 
     retuneConverterEnd(conn, state, otherEnd, wantedType) {
@@ -326,6 +359,12 @@ const ConnectionsMixin = {
             return false;
         }
         
+        const shared = this.findSharedConverter(fromDevice.id, fromPort.id, rule);
+        if (shared) {
+            this.createConnection(shared.converter.id, shared.out.id, toDevice.id, toPort.id, label);
+            return true;
+        }
+        
         const midX = (fromDevice.x + fromDevice.width + toDevice.x) / 2 - 80;
         const midY = (fromDevice.y + (fromPort.cy || 45) + toDevice.y + (toPort.cy || 45)) / 2 - 45;
         const converter = this.addDeviceToCanvas(template, Math.max(0, midX), Math.max(0, midY));
@@ -354,16 +393,25 @@ const ConnectionsMixin = {
     },
 
     createConnection(fromDeviceId, fromPortId, toDeviceId, toPortId, label) {
-        const existing = this.connections.find(c => 
-            (c.fromDevice === fromDeviceId && c.fromPort === fromPortId) ||
-            (c.toDevice === toDeviceId && c.toPort === toPortId)
-        );
-        if (existing) return;
+        if (this.connections.some(c => c.toDevice === toDeviceId && c.toPort === toPortId)) return;
         
         const fromDevice = this.devices.find(d => d.id === fromDeviceId);
         const toDevice = this.devices.find(d => d.id === toDeviceId);
+        if (!fromDevice || !toDevice) return;
         const fromPort = fromDevice.outputs.find(p => p.id === fromPortId);
         const toPort = toDevice.inputs.find(p => p.id === toPortId);
+        
+        if (this.connections.some(c => c.fromDevice === fromDeviceId && c.fromPort === fromPortId)) {
+            // Ausgang ist bereits belegt: Falls dort ein Konverter mit freien passenden
+            // Ausgaengen haengt (z.B. CVT-10 mit mehreren Cat5/6-Ausgaengen), diesen mitnutzen.
+            const sharedRule = this.converterRuleFor(this.signalType(fromPort), this.signalType(toPort));
+            const shared = this.autoConverter ? this.findSharedConverter(fromDeviceId, fromPortId, sharedRule) : null;
+            if (shared) {
+                this.cancelConnection();
+                this.createConnection(shared.converter.id, shared.out.id, toDeviceId, toPortId, label);
+            }
+            return;
+        }
         this.recordHistory();
         
         const fromType = this.signalType(fromPort);
@@ -1035,6 +1083,29 @@ const ConnectionsMixin = {
             usedIn.add(inp.id);
             plan.push({ out, inp, reason, rule: rule || null });
         };
+        // Ein Ausgang darf ueber einen Konverter mit mehreren Ausgaengen (z.B. CVT-10:
+        // 1x LC/LC rein, mehrere Cat5/6 raus) mehrere Eingaenge des Zielgeraets versorgen.
+        const takeViaConverter = (out, rule, capacity, reason) => {
+            let n = 0;
+            for (const inp of inputs) {
+                if (n >= capacity) break;
+                if (usedIn.has(inp.id) || this.signalType(inp) !== rule.to) continue;
+                take(out, inp, n === 0 ? reason : `${reason} (gemeinsam genutzt)`, rule);
+                n++;
+            }
+            return n;
+        };
+        // Bereits belegte Ausgaenge, an denen ein Konverter mit freien Ausgaengen haengt, mitnutzen.
+        const sharedOutputs = [];
+        if (this.autoConverter) {
+            fromDevice.outputs.filter(p => this.isPortUsed(fromDevice.id, p.id, null)).forEach(out => {
+                const oType = this.signalType(out);
+                this.converterRules.filter(r => r.from === oType).forEach(rule => {
+                    const shared = this.findSharedConverter(fromDevice.id, out.id, rule);
+                    if (shared) sharedOutputs.push({ out, rule, capacity: shared.freeOuts.length });
+                });
+            });
+        }
         const pass = (predicate, reason) => {
             outputs.forEach(out => {
                 if (plan.some(p => p.out.id === out.id)) return;
@@ -1045,10 +1116,14 @@ const ConnectionsMixin = {
         
         if (preferFiber && this.autoConverter) {
             const rule = this.converterRuleFor('LC', 'CAT');
-            if (rule && this.findConverterTemplate(rule)) {
+            const template = rule ? this.findConverterTemplate(rule) : null;
+            if (template) {
+                sharedOutputs.filter(s => s.rule === rule).forEach(s => {
+                    takeViaConverter(s.out, rule, s.capacity, `Glasfaser über vorhandenen ${template.name}`);
+                });
+                const capacity = this.converterCapacity(template, rule);
                 outputs.filter(o => this.signalType(o) === 'LC').forEach(out => {
-                    const inp = inputs.find(i => !usedIn.has(i.id) && this.signalType(i) === 'CAT');
-                    if (inp) take(out, inp, `Glasfaser über ${rule.template}`, rule);
+                    takeViaConverter(out, rule, capacity, `Glasfaser über ${template.name}`);
                 });
             }
         }
@@ -1068,6 +1143,9 @@ const ConnectionsMixin = {
         pass((o, i) => this.signalsCompatible(this.signalType(o), this.signalType(i)), 'kompatible Signalart');
         
         if (this.autoConverter) {
+            sharedOutputs.forEach(s => {
+                takeViaConverter(s.out, s.rule, s.capacity, `Konverter ${s.rule.from} → ${s.rule.to} (vorhanden)`);
+            });
             outputs.forEach(out => {
                 if (plan.some(p => p.out.id === out.id)) return;
                 const oType = this.signalType(out);
@@ -1075,8 +1153,9 @@ const ConnectionsMixin = {
                 for (const inp of inputs) {
                     if (usedIn.has(inp.id)) continue;
                     const rule = this.converterRuleFor(oType, this.signalType(inp));
-                    if (rule && this.findConverterTemplate(rule)) {
-                        take(out, inp, `Konverter ${rule.from} → ${rule.to}`, rule);
+                    const template = rule ? this.findConverterTemplate(rule) : null;
+                    if (template) {
+                        takeViaConverter(out, rule, this.converterCapacity(template, rule), `Konverter ${rule.from} → ${rule.to}`);
                         break;
                     }
                 }

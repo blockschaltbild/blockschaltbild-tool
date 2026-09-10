@@ -64,8 +64,8 @@ class BlockDiagramEditor {
             { from: 'HDMI', to: 'SDI', template: 'BiDi 12G' },
             { from: 'SDI', to: 'HDMI', template: 'BiDi 12G' },
             { from: 'DP', to: 'HDMI', template: 'DP-HDMI Adapter' },
-            { from: 'LC', to: 'CAT', template: 'CVT-10' },
-            { from: 'CAT', to: 'LC', template: 'CVT-10' }
+            { from: 'LC', to: 'CAT', template: 'CVT-10', article: '1022136' },
+            { from: 'CAT', to: 'LC', template: 'CVT-10', article: '1022136' }
         ];
         
         this.libraryKey = 'blockschaltbild.library.v1';

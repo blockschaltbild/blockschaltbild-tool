@@ -1784,6 +1784,23 @@ input[type="checkbox"] {
     margin-bottom: 8px;
 }
 
+.io-name-field .io-drag-handle {
+    cursor: grab;
+    color: var(--ict-muted);
+    font-size: 14px;
+    letter-spacing: -3px;
+    user-select: none;
+    padding: 4px 2px;
+}
+
+.io-name-field .io-drag-handle:active {
+    cursor: grabbing;
+}
+
+.io-name-field.dragging {
+    opacity: 0.4;
+}
+
 .io-name-field .io-number {
     min-width: 30px;
     color: var(--ict-muted);

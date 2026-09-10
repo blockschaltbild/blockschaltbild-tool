@@ -65,6 +65,9 @@
     .port-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
     .port-row input { flex: 1; }
     .port-row select { width: 140px; }
+    .port-row .port-drag-handle { cursor: grab; color: #888; font-size: 14px; letter-spacing: -3px; user-select: none; padding: 4px 2px; }
+    .port-row .port-drag-handle:active { cursor: grabbing; }
+    .port-row.dragging { opacity: .4; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     #libStatus { font-size: .78rem; color: #666; margin-left: auto; }
     .empty-hint { color: #888; font-size: .84rem; padding: 14px 0; }

@@ -404,11 +404,59 @@ const ModalsMixin = {
         const div = document.createElement('div');
         div.className = 'io-name-field';
         div.innerHTML = `
+            <span class="io-drag-handle" title="Ziehen zum Umsortieren">⋮⋮</span>
             <span class="io-number">${number}.</span>
             <input type="text" class="io-name" value="${value}" placeholder="${containerId === 'inputsList' ? 'Eingang' : 'Ausgang'} ${number}">
             <select class="io-cable" title="Kabeltyp für diesen Anschluss">${this.cableOptionsHtml(cable)}</select>
         `;
         container.appendChild(div);
+        this.initIOListSorting(container);
+    },
+
+    initIOListSorting(container) {
+        if (container.dataset.sortable) return;
+        container.dataset.sortable = '1';
+        let dragged = null;
+        const rows = () => Array.from(container.querySelectorAll('.io-name-field'));
+        const renumber = () => rows().forEach((row, i) => {
+            row.querySelector('.io-number').textContent = `${i + 1}.`;
+            const input = row.querySelector('.io-name');
+            const label = container.id === 'inputsList' ? 'Eingang' : 'Ausgang';
+            input.placeholder = `${label} ${i + 1}`;
+        });
+        container.addEventListener('mousedown', (e) => {
+            const handle = e.target.closest?.('.io-drag-handle');
+            if (!handle) return;
+            const row = handle.closest('.io-name-field');
+            if (row) row.draggable = true;
+        });
+        container.addEventListener('dragstart', (e) => {
+            const row = e.target.closest?.('.io-name-field');
+            if (!row || !row.draggable) { e.preventDefault(); return; }
+            dragged = row;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+        });
+        container.addEventListener('dragover', (e) => {
+            if (!dragged) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const over = e.target.closest?.('.io-name-field');
+            if (!over || over === dragged) return;
+            const rect = over.getBoundingClientRect();
+            const before = e.clientY < rect.top + rect.height / 2;
+            container.insertBefore(dragged, before ? over : over.nextSibling);
+        });
+        container.addEventListener('drop', (e) => { if (dragged) e.preventDefault(); });
+        container.addEventListener('dragend', () => {
+            if (!dragged) return;
+            dragged.classList.remove('dragging');
+            dragged.draggable = false;
+            dragged = null;
+            renumber();
+        });
+        container.addEventListener('mouseup', () => rows().forEach(r => { if (r !== dragged) r.draggable = false; }));
     },
 
     cableOptionsHtml(selected = '') {

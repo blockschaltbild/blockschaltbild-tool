@@ -295,10 +295,51 @@
         const row = document.createElement('div');
         row.className = 'port-row';
         const cableOptions = ['', ...state.library.cableTypes].map(c => `<option value="${c}" ${c === cable ? 'selected' : ''}>${c || '(kein Kabeltyp)'}</option>`).join('');
-        row.innerHTML = `<input type="text" placeholder="Bezeichnung" value="${name || ''}"><select>${cableOptions}</select><button class="small" type="button">✕</button>`;
+        row.innerHTML = `<span class="port-drag-handle" title="Ziehen zum Umsortieren">⋮⋮</span><input type="text" placeholder="Bezeichnung" value="${name || ''}"><select>${cableOptions}</select><button class="small" type="button">✕</button>`;
         row.querySelector('button').onclick = () => row.remove();
         container.appendChild(row);
+        initPortSorting(container);
         return row;
+    }
+
+    function initPortSorting(container) {
+        if (container.dataset.sortable) return;
+        container.dataset.sortable = '1';
+        let dragged = null;
+        container.addEventListener('mousedown', (e) => {
+            const handle = e.target.closest?.('.port-drag-handle');
+            if (!handle) return;
+            const row = handle.closest('.port-row');
+            if (row) row.draggable = true;
+        });
+        container.addEventListener('dragstart', (e) => {
+            const row = e.target.closest?.('.port-row');
+            if (!row || !row.draggable) { e.preventDefault(); return; }
+            dragged = row;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+        });
+        container.addEventListener('dragover', (e) => {
+            if (!dragged) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const over = e.target.closest?.('.port-row');
+            if (!over || over === dragged) return;
+            const rect = over.getBoundingClientRect();
+            const before = e.clientY < rect.top + rect.height / 2;
+            container.insertBefore(dragged, before ? over : over.nextSibling);
+        });
+        container.addEventListener('drop', (e) => { if (dragged) e.preventDefault(); });
+        container.addEventListener('dragend', () => {
+            if (!dragged) return;
+            dragged.classList.remove('dragging');
+            dragged.draggable = false;
+            dragged = null;
+        });
+        container.addEventListener('mouseup', () => {
+            container.querySelectorAll('.port-row').forEach(r => { if (r !== dragged) r.draggable = false; });
+        });
     }
 
     function readPorts(container) {
