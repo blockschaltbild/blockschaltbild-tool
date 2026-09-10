@@ -3,6 +3,46 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.26.0 – 2026-09-10
+
+- **Marquee-Auswahl (Aufziehrechteck):** Bei gedrückter linker Maustaste auf einer leeren Stelle der Zeichenfläche lässt sich jetzt ein Auswahlrechteck aufziehen; alle darin liegenden Geräte werden automatisch markiert. Mit gedrückter Umschalttaste wird zur bestehenden Auswahl hinzugefügt.
+- **Gemeinsames Verschieben markierter Geräte:** Sind mehrere Geräte per Mehrfachauswahl (Umschalttaste oder Aufziehrechteck) markiert, werden sie beim Ziehen eines der markierten Geräte nun alle gemeinsam verschoben.
+- Die bestehende Funktion „Auswahl gruppieren“ funktioniert jetzt auch mit einer per Aufziehrechteck erstellten Mehrfachauswahl.
+
+## Version 1.25.2 – 2026-09-10
+
+- Fehlerbehebung: Beim Verschieben eines Geräts in der Gruppen-Zeichenfläche wurden die gestrichelten Stummel-Linien für ein-/ausgehende externe Verbindungen bei jedem Neuzeichnen zusätzlich angehängt statt ersetzt, wodurch sich Linien und Beschriftungen sichtbar überlagerten. Die Zeichenfläche wird jetzt vor jedem Neuzeichnen korrekt geleert.
+
+## Version 1.25.1 – 2026-09-10
+
+- Fehlerbehebung: Beim Verschieben von Geräten innerhalb der Gruppen-Zeichenfläche sprang der eingeklappte Gruppenblock beim Zurückkehren zum Ursprungsblatt auf eine neue Position. Die Position des eingeklappten Blocks im Ursprungsblatt bleibt jetzt unverändert (Vorrang), unabhängig davon, wie die Geräte innerhalb der Gruppen-Zeichenfläche angeordnet wurden – interne Anordnungsänderungen werden beim Zurückspielen automatisch auf die ursprüngliche Position ausgerichtet.
+
+## Version 1.25.0 – 2026-09-10
+
+- **Externe Verbindungen in der Gruppen-Zeichenfläche:** Führt eine Verbindung von außerhalb in die Gruppe hinein oder aus ihr heraus zu einem anderen Gerät, wird dies in der Gruppen-Zeichenfläche jetzt als gestrichelte Stummel-Linie mit Pfeilspitze am betroffenen Anschluss dargestellt, beschriftet mit Name (und Anschlussbezeichnung) des externen Geräts sowie Pfeilrichtung. So bleibt beim konzentrierten Bearbeiten einer Gruppe erkennbar, woher eine Verbindung kommt bzw. wohin sie führt, ohne das externe Gerät selbst einzublenden.
+
+## Version 1.24.1 – 2026-09-10
+
+- Fehlerbehebung: Der eingeklappte Gruppenblock hatte je nach Layout der enthaltenen Geräte eine stark variierende, teils sehr große Breite. Er hat jetzt immer die Standardbreite eines Geräts (kann bei vielen Mitgliedern nur noch in der Höhe wachsen); Titel und Geräteliste werden bei Bedarf sauber abgeschnitten.
+- Fehlerbehebung: Der Reiter der Gruppen-Zeichenfläche (und deren Titelleiste) übernahm beim Umbenennen einer eingeklappten Gruppe nicht sofort den neuen Namen. Reiter und Titel folgen jetzt direkt der Umbenennung.
+
+## Version 1.24.0 – 2026-09-10
+
+- **Eigene Zeichenfläche für eingeklappte Gruppen:** Sobald eine Gruppe eingeklappt ist, erscheint oben (neben den Blatt-Reitern) ein eigener „📦"-Reiter für diese Gruppe; alternativ per Doppelklick auf den eingeklappten Block oder über „📦 Gruppen-Zeichenfläche öffnen" im Rechtsklick-Kontextmenü. Die Zeichenfläche zeigt konzentriert nur die Geräte und internen Verbindungen der Gruppe, ohne Ablenkung durch das restliche Blatt. Alle dort vorgenommenen Änderungen (verschieben, verbinden, neue Geräte hinzufügen, löschen) werden automatisch in die eingeklappte Gruppe zurückgespielt. Über „← Zurück zum Blatt" verlässt man die Zeichenfläche (Gruppe bleibt eingeklappt), über „📂 Gruppe ausklappen & schließen" werden die Änderungen übernommen, die Gruppe ausgeklappt und die Zeichenfläche verschwindet wieder.
+
+## Version 1.23.1 – 2026-09-10
+
+- **Tastenkürzel für Gruppierung:** Neue Tastenkürzel (sichtbar über „Tastenkürzel anzeigen"): **Strg+J** gruppiert die aktuelle Mehrfachauswahl, **Strg+Umschalt+J** hebt die Gruppierung des ausgewählten/zuletzt aktiven gruppierten Geräts bzw. der eingeklappten Gruppe auf, **Strg+K** klappt die Gruppe des ausgewählten Geräts bzw. der aktiven Gruppe ein oder aus.
+- Fehlerbehebung: Wird ein extern mit einer eingeklappten Gruppe verbundenes Gerät verschoben, folgt die gebündelte Verbindungslinie am Gruppenblock jetzt korrekt (vorher nur beim Verschieben der Gruppe selbst).
+
+## Version 1.23.0 – 2026-09-10
+
+- **Gruppen einklappen:** Eine Gruppierung kann jetzt zusätzlich zur normalen Ansicht zu einem einzigen Block zusammengeklappt werden (Kontextmenü „📦 Gruppe einklappen" auf einem gruppierten Gerät bzw. „📂 Gruppe ausklappen" per Rechtsklick auf den Block). Der zusammengeklappte Block trägt den Namen der Gruppe als Titel und listet alle enthaltenen Geräte auf. Alle Verbindungen, die in die Gruppe hinein- bzw. aus ihr herausführen, werden dabei zu genau einer eingehenden und einer ausgehenden Linie gebündelt (interne Verbindungen zwischen Gruppenmitgliedern werden ausgeblendet); bei mehr als einer gebündelten Verbindung zeigt eine „×N"-Markierung die Anzahl an. Der Block lässt sich wie ein Gerät ziehen und bewegt dabei alle enthaltenen Geräte mit. Unterstützt Umbenennen, Gruppierung aufheben (klappt dabei automatisch aus), Rückgängig/Wiederherstellen und wird mit dem Projekt gespeichert.
+
+## Version 1.22.0 – 2026-09-10
+
+- **Geräte gruppieren:** Mehrere Geräte (inkl. ihrer Verbindungen) können jetzt gruppiert werden, um ganze Blöcke gemeinsam zu verschieben. Mit Umschalt-Klick werden mehrere Geräte ausgewählt (gestrichelter violetter Rahmen), über den Button „Auswahl gruppieren" im Eigenschaften-Panel oder direkt im Rechtsklick-Kontextmenü wird daraus eine Gruppierung. Ein Rechtsklick auf ein bereits mehrfach ausgewähltes Gerät behält die Auswahl bei, sodass „Auswahl gruppieren" dort erscheint. Gruppierte Geräte sind von einem gestrichelten Rahmen mit Namensbeschriftung umgeben (Standard: fortlaufend „Gruppe 1", „Gruppe 2" usw.); wird ein Gerät der Gruppe verschoben, ziehen alle anderen Geräte der Gruppe (und die daran hängenden Verbindungen) automatisch mit. Der Gruppenname lässt sich per Doppelklick auf die Beschriftung oder über „Gruppierung umbenennen" im Kontextmenü ändern. Über „Gruppierung aufheben" im Kontextmenü lässt sich die Gruppierung wieder lösen. Gruppierungen werden mit dem Projekt gespeichert und unterstützen Rückgängig/Wiederherstellen.
+
 ## Version 1.21.1 – 2026-09-10
 
 - **Löschen mit Backspace:** Ein markiertes Gerät (bzw. markierte Verbindung/Textfeld) kann jetzt auch mit der Rücktaste (Backspace) gelöscht werden, nicht nur mit Entf.

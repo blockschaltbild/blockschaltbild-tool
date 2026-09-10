@@ -2,6 +2,7 @@ Object.assign(
     BlockDiagramEditor.prototype,
     LibraryMixin,
     CanvasMixin,
+    GroupsMixin,
     ConnectionsMixin,
     ModalsMixin,
     ExportMixin,

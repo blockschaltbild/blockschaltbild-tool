@@ -197,6 +197,17 @@ const EventsMixin = {
         this.svg.addEventListener('click', (e) => this.onClick(e));
         
         this.svg.addEventListener('contextmenu', (e) => {
+            const groupBlock = e.target.closest('.group-collapsed-block');
+            if (groupBlock) {
+                e.preventDefault();
+                if (this.readOnly) { this.notifyReadOnly(); return; }
+                const group = this.deviceGroups.find(g => g.id === groupBlock.dataset.groupId);
+                if (!group) return;
+                this.draggedGroupBlock = null;
+                this.selectedGroupId = group.id;
+                this.showGroupContextMenu(group, e.clientX, e.clientY);
+                return;
+            }
             const deviceBlock = e.target.closest('.device-block');
             if (!deviceBlock) return;
             e.preventDefault();

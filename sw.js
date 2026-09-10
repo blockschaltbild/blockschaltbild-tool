@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.21.1';
+const CACHE_VERSION = '1.26.0';
 const CACHE_NAME = `blockschaltbild-${CACHE_VERSION}`;
 
 const APP_FILES = [
@@ -14,6 +14,7 @@ const APP_FILES = [
     './app-canvas.js',
     './app-connections.js',
     './app-modals.js',
+    './app-groups.js',
     './app-export.js',
     './app-history.js',
     './app-shortcuts.js',

@@ -14,7 +14,17 @@ class BlockDiagramEditor {
         this.nextDeviceId = 1;
         this.nextConnectionId = 1;
         this.nextTextboxId = 1;
-        this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes }];
+        this.deviceGroups = [];
+        this.nextDeviceGroupId = 1;
+        this.selectedDevices = [];
+        this.draggedGroup = null;
+        this.groupDragStart = null;
+        this.draggedGroupBlock = null;
+        this.groupBlockStartBounds = null;
+        this.groupBlockDragOffset = null;
+        this.selectedGroupId = null;
+        this.activeGroupWorkspace = null;
+        this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes, deviceGroups: this.deviceGroups }];
         this.activeSheet = 0;
         this.nextSheetId = 2;
         this.projectName = 'Neues Projekt';
@@ -131,6 +141,10 @@ class BlockDiagramEditor {
         this.svg.appendChild(this.gridRect);
         this.updateGrid();
         
+        this.groupsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        this.groupsLayer.setAttribute('id', 'groups-layer');
+        this.svg.appendChild(this.groupsLayer);
+
         this.connectionsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.connectionsLayer.setAttribute('id', 'connections-layer');
         this.svg.appendChild(this.connectionsLayer);
@@ -247,6 +261,19 @@ class BlockDiagramEditor {
             tab.addEventListener('dblclick', () => this.startSheetRename(tab, idx));
             list.appendChild(tab);
         });
+        if (!this.activeGroupWorkspace) {
+            this.deviceGroups.filter(g => g.collapsed).forEach(group => {
+                const tab = document.createElement('div');
+                tab.className = 'sheet-tab group-workspace-tab';
+                tab.title = 'Eigene Zeichenfläche der Gruppe öffnen';
+                const label = document.createElement('span');
+                label.textContent = `📦 ${group.name}`;
+                tab.appendChild(label);
+                tab.addEventListener('click', () => this.enterGroupWorkspace(group.id));
+                list.appendChild(tab);
+            });
+        }
+        this.renderGroupWorkspaceBar();
     }
 
 
@@ -281,11 +308,13 @@ class BlockDiagramEditor {
 
 
     storeActiveSheet() {
+        if (this.activeGroupWorkspace) return;
         const sheet = this.sheets[this.activeSheet];
         if (!sheet) return;
         sheet.devices = this.devices;
         sheet.connections = this.connections;
         sheet.textboxes = this.textboxes;
+        sheet.deviceGroups = this.deviceGroups;
     }
 
 
@@ -321,9 +350,13 @@ class BlockDiagramEditor {
         this.connections = sheet.connections;
         if (!sheet.textboxes) sheet.textboxes = [];
         this.textboxes = sheet.textboxes;
+        if (!sheet.deviceGroups) sheet.deviceGroups = [];
+        this.deviceGroups = sheet.deviceGroups;
+        this.selectedDevices = [];
         this.devicesLayer.innerHTML = '';
         this.connectionsLayer.innerHTML = '';
         this.textboxesLayer.innerHTML = '';
+        if (this.groupsLayer) this.groupsLayer.innerHTML = '';
     }
 
     async activateSheetAsync(idx, onProgress) {
@@ -355,6 +388,7 @@ class BlockDiagramEditor {
         done += this.textboxes.length;
         await report('Kreuzungen werden berechnet …');
         this.drawCrossingBridges();
+        this.renderGroupOutlines();
         done++;
         this.renderSheetTabs();
         if (onProgress) onProgress(done, total, 'Fertig');
@@ -368,11 +402,15 @@ class BlockDiagramEditor {
         this.bulkRender = false;
         this.textboxes.forEach(t => this.renderTextbox(t));
         this.drawCrossingBridges();
+        this.renderGroupOutlines();
         this.renderSheetTabs();
     }
 
 
+
+
     switchSheet(idx) {
+        if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
         this.deselectAll();
         this.storeActiveSheet();
         this.activateSheet(idx);
@@ -380,16 +418,18 @@ class BlockDiagramEditor {
 
 
     addSheet() {
+        if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
         this.deselectAll();
         this.storeActiveSheet();
         this.recordHistory();
         const id = this.nextSheetId++;
-        this.sheets.push({ id: id, name: `Blatt ${this.sheets.length + 1}`, devices: [], connections: [], textboxes: [] });
+        this.sheets.push({ id: id, name: `Blatt ${this.sheets.length + 1}`, devices: [], connections: [], textboxes: [], deviceGroups: [] });
         this.activateSheet(this.sheets.length - 1);
     }
 
 
     deleteSheet(idx) {
+        if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
         if (this.sheets.length <= 1) {
             alert('Der letzte Arbeitsbereich kann nicht gelöscht werden.');
             return;
@@ -498,6 +538,8 @@ class BlockDiagramEditor {
         if (this.handlesLayer) this.handlesLayer.innerHTML = '';
         this.deselectConnections();
         this.selectedElement = null;
+        this.selectedGroupId = null;
+        this.clearMultiSelect();
         document.getElementById('propertiesPanel').innerHTML = '<p class="hint">Wählen Sie ein Element aus</p>';
     }
 
@@ -524,6 +566,7 @@ class BlockDiagramEditor {
             });
             this.devices = this.devices.filter(d => d.id !== device.id);
             document.getElementById(device.id)?.remove();
+            this.removeDeviceFromGroups(device.id);
         } else if (this.selectedElement.type === 'connection') {
             const conn = this.selectedElement.element;
             const fromDevice = this.devices.find(d => d.id === conn.fromDevice);
@@ -549,10 +592,12 @@ class BlockDiagramEditor {
         
         this.deselectAll();
         this.cleanupConverters();
+        this.renderGroupOutlines();
     }
 
 
     newDiagram() {
+        if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
         const hasContent = this.sheets.some(s => (s === this.sheets[this.activeSheet] ? this.devices : s.devices).length > 0);
         if (hasContent && !confirm('Aktuelles Diagramm verwerfen?')) return;
         this.recordHistory();
@@ -560,7 +605,10 @@ class BlockDiagramEditor {
         this.devices = [];
         this.connections = [];
         this.textboxes = [];
-        this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes }];
+        this.deviceGroups = [];
+        this.nextDeviceGroupId = 1;
+        this.selectedDevices = [];
+        this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes, deviceGroups: this.deviceGroups }];
         this.activeSheet = 0;
         this.nextSheetId = 2;
         this.nextTextboxId = 1;
@@ -568,6 +616,7 @@ class BlockDiagramEditor {
         this.devicesLayer.innerHTML = '';
         this.connectionsLayer.innerHTML = '';
         this.textboxesLayer.innerHTML = '';
+        if (this.groupsLayer) this.groupsLayer.innerHTML = '';
         this.projectName = 'Neues Projekt';
         this.projectNumber = '';
         this.eventFrom = '';

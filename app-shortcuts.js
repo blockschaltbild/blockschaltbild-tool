@@ -23,6 +23,11 @@ const ShortcutsMixin = {
                 { label: 'Drucken: Listen PDF', combos: [{ mod: true, shift: true, keys: ['p'] }], buttonId: 'btnExportLists', run: () => this.showPdfExportModal('lists') },
                 { label: 'Projekteigenschaften öffnen', combos: [{ mod: true, keys: ['i'] }], buttonId: 'btnProjectSettings', run: () => this.showProjectModal() }
             ]},
+            { section: 'Gruppierung', items: [
+                { label: 'Auswahl gruppieren', combos: [{ mod: true, keys: ['j'] }], run: () => this.groupSelectedDevicesShortcut() },
+                { label: 'Gruppierung aufheben', combos: [{ mod: true, shift: true, keys: ['j'] }], run: () => this.ungroupShortcut() },
+                { label: 'Gruppe ein-/ausklappen', combos: [{ mod: true, keys: ['k'] }], run: () => this.toggleCollapseShortcut() }
+            ]},
             { section: 'Verbindungen', items: [
                 { label: 'Auto-Verbinden', combos: [{ mod: true, keys: ['b'] }], buttonId: 'btnAutoConnect', run: () => this.autoConnect() },
                 { label: 'Verbindungen als Kurve darstellen', combos: [{ mod: true, shift: true, keys: ['k'] }], run: () => this.setLineStyleFromShortcut('curve') },

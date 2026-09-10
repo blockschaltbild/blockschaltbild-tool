@@ -224,6 +224,12 @@ const ModalsMixin = {
             </div>
             <label class="context-menu-color">Farbe <input type="color" id="ctxDeviceColor" value="${this.escapeHtml(device.color || '#3498db')}"></label>
             <div class="menu-separator"></div>
+            ${this.findGroupForDevice(device.id)
+                ? `<button type="button" data-action="rename-group">✏️ Gruppierung umbenennen</button><button type="button" data-action="collapse-group">📦 Gruppe einklappen</button><button type="button" data-action="ungroup">🔓 Gruppierung aufheben</button>`
+                : (this.selectedDevices.includes(device.id) && this.selectedDevices.length >= 2
+                    ? `<button type="button" data-action="group-selection">🔗 Auswahl gruppieren (${this.selectedDevices.length})</button>`
+                    : '')}
+            <div class="menu-separator"></div>
             <button type="button" data-action="reset">Zurücksetzen</button>
             <button type="button" data-action="delete" class="danger">Löschen</button>
         `;
@@ -250,11 +256,64 @@ const ModalsMixin = {
                     this.openDeviceTemplateEditor(device);
                 } else if (action === 'group') {
                     this.applyDeviceChange(device, { group: btn.dataset.group }, { local: true });
+                } else if (action === 'rename-group') {
+                    const group = this.findGroupForDevice(device.id);
+                    if (group) this.promptRenameGroup(group.id);
+                } else if (action === 'ungroup') {
+                    const group = this.findGroupForDevice(device.id);
+                    if (group) this.ungroupGroupById(group.id);
+                } else if (action === 'collapse-group') {
+                    const group = this.findGroupForDevice(device.id);
+                    if (group) this.toggleGroupCollapsed(group.id);
+                } else if (action === 'group-selection') {
+                    this.groupSelectedDevices();
                 } else if (action === 'reset') {
                     this.resetDevice(device);
                 } else if (action === 'delete') {
                     this.selectElement(device, 'device');
                     this.deleteSelected();
+                }
+                this.hideDeviceContextMenu();
+            });
+        });
+    },
+
+    showGroupContextMenu(group, clientX, clientY) {
+        this.hideDeviceContextMenu();
+        
+        const menu = document.createElement('div');
+        menu.id = 'deviceContextMenu';
+        menu.className = 'context-menu';
+        menu.innerHTML = `
+            <div class="context-menu-title">${this.escapeHtml(group.name)}</div>
+            <button type="button" data-action="edit-group">📦 Gruppen-Zeichenfläche öffnen</button>
+            <button type="button" data-action="rename-group">✏️ Gruppierung umbenennen</button>
+            <button type="button" data-action="expand-group">📂 Gruppe ausklappen</button>
+            <button type="button" data-action="ungroup">🔓 Gruppierung aufheben</button>
+        `;
+        document.body.appendChild(menu);
+        
+        const pad = 8;
+        const rect = menu.getBoundingClientRect();
+        const left = Math.min(clientX, window.innerWidth - rect.width - pad);
+        const top = Math.min(clientY, window.innerHeight - rect.height - pad);
+        menu.style.left = `${Math.max(pad, left)}px`;
+        menu.style.top = `${Math.max(pad, top)}px`;
+        
+        menu.addEventListener('contextmenu', (e) => e.preventDefault());
+        menu.addEventListener('mousedown', (e) => e.stopPropagation());
+        
+        menu.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                if (action === 'edit-group') {
+                    this.enterGroupWorkspace(group.id);
+                } else if (action === 'rename-group') {
+                    this.promptRenameGroup(group.id);
+                } else if (action === 'expand-group') {
+                    this.toggleGroupCollapsed(group.id);
+                } else if (action === 'ungroup') {
+                    this.ungroupGroupById(group.id);
                 }
                 this.hideDeviceContextMenu();
             });

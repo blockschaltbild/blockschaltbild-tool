@@ -75,6 +75,9 @@ const CanvasMixin = {
         const existing = document.getElementById(device.id);
         if (existing) existing.remove();
         
+        const group = this.findGroupForDevice ? this.findGroupForDevice(device.id) : null;
+        if (group && group.collapsed) return;
+        
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('id', device.id);
         g.setAttribute('class', 'device-block' + (device.placeholder ? ' placeholder' : ''));
@@ -194,6 +197,31 @@ const CanvasMixin = {
         const deviceBlock = target.closest('.device-block');
         const port = target.closest('.port');
         
+        const groupBlock = target.closest('.group-collapsed-block');
+        if (groupBlock && e.button !== 2) {
+            const group = this.deviceGroups.find(g => g.id === groupBlock.dataset.groupId);
+            if (group) {
+                const rect = this.svg.getBoundingClientRect();
+                const bounds = this.getGroupBounds(group);
+                this.draggedGroupBlock = group;
+                this.groupBlockStartBounds = bounds;
+                this.groupBlockDragOffset = {
+                    x: (e.clientX - rect.left) / this.zoom - bounds.minX,
+                    y: (e.clientY - rect.top) / this.zoom - bounds.minY
+                };
+                this.groupDragStart = {};
+                group.deviceIds.forEach(id => {
+                    const d = this.devices.find(x => x.id === id);
+                    if (d) this.groupDragStart[id] = { x: d.x, y: d.y };
+                });
+                this.clearMultiSelect();
+                this.deselectAll();
+                this.selectedGroupId = group.id;
+                e.preventDefault();
+            }
+            return;
+        }
+        
         const textboxBlock = target.closest('.textbox-block');
         if (textboxBlock) {
             const box = this.textboxes.find(t => t.id === textboxBlock.dataset.textboxId);
@@ -255,12 +283,64 @@ const CanvasMixin = {
             const rect = this.svg.getBoundingClientRect();
             const device = this.devices.find(d => d.id === deviceBlock.dataset.deviceId);
             if (device) {
+                if (e.shiftKey && e.button !== 2) {
+                    e.preventDefault();
+                    this.toggleMultiSelect(device);
+                    return;
+                }
+                if (e.button === 2) {
+                    if (!(this.selectedDevices.length >= 2 && this.selectedDevices.includes(device.id))) {
+                        this.clearMultiSelect();
+                        this.selectElement(device, 'device');
+                    }
+                    return;
+                }
+                const isPartOfMultiSelect = this.selectedDevices.length > 1 && this.selectedDevices.includes(device.id);
+                if (this.selectedDevices.length && !this.selectedDevices.includes(device.id)) {
+                    this.clearMultiSelect();
+                }
                 this.draggedDevice = device;
                 this.dragOffset = {
                     x: (e.clientX - rect.left) / this.zoom - device.x,
                     y: (e.clientY - rect.top) / this.zoom - device.y
                 };
-                this.selectElement(device, 'device');
+                if (isPartOfMultiSelect) {
+                    this.multiDragStart = {};
+                    this.selectedDevices.forEach(id => {
+                        const d = this.devices.find(x => x.id === id);
+                        if (d) this.multiDragStart[id] = { x: d.x, y: d.y };
+                    });
+                    this.draggedGroup = null;
+                    this.groupDragStart = null;
+                } else {
+                    this.multiDragStart = null;
+                    const group = this.findGroupForDevice(device.id);
+                    this.draggedGroup = group;
+                    this.groupDragStart = null;
+                    if (group) {
+                        this.groupDragStart = {};
+                        group.deviceIds.forEach(id => {
+                            const d = this.devices.find(x => x.id === id);
+                            if (d) this.groupDragStart[id] = { x: d.x, y: d.y };
+                        });
+                    }
+                    this.selectElement(device, 'device');
+                }
+            }
+            return;
+        }
+        
+        if (e.button === 0) {
+            e.preventDefault();
+            const rect = this.svg.getBoundingClientRect();
+            this.marqueeStart = {
+                x: (e.clientX - rect.left) / this.zoom,
+                y: (e.clientY - rect.top) / this.zoom
+            };
+            this.marqueeBase = e.shiftKey ? [...this.selectedDevices] : [];
+            if (!e.shiftKey) {
+                this.clearMultiSelect();
+                this.deselectAll();
             }
         }
     },
@@ -270,11 +350,63 @@ const CanvasMixin = {
         const x = (e.clientX - rect.left) / this.zoom;
         const y = (e.clientY - rect.top) / this.zoom;
         
+        if (this.marqueeStart) {
+            this.updateMarquee(x, y);
+            return;
+        }
+        
+        if (this.draggedGroupBlock && this.groupDragStart) {
+            this.beginDragHistory();
+            const newX = Math.max(0, this.snap(x - this.groupBlockDragOffset.x));
+            const newY = Math.max(0, this.snap(y - this.groupBlockDragOffset.y));
+            const dx = newX - this.groupBlockStartBounds.minX;
+            const dy = newY - this.groupBlockStartBounds.minY;
+            this.draggedGroupBlock.deviceIds.forEach(id => {
+                const d = this.devices.find(dev => dev.id === id);
+                const s = this.groupDragStart[id];
+                if (!d || !s) return;
+                d.x = Math.max(0, s.x + dx);
+                d.y = Math.max(0, s.y + dy);
+            });
+            this.renderGroupOutlines();
+            return;
+        }
+        
         if (this.draggedDevice) {
             this.beginDragHistory();
-            this.draggedDevice.x = Math.max(0, this.snap(x - this.dragOffset.x));
-            this.draggedDevice.y = Math.max(0, this.snap(y - this.dragOffset.y));
-            this.renderDevice(this.draggedDevice);
+            const newX = Math.max(0, this.snap(x - this.dragOffset.x));
+            const newY = Math.max(0, this.snap(y - this.dragOffset.y));
+            if (this.multiDragStart) {
+                const start = this.multiDragStart[this.draggedDevice.id];
+                const dx = newX - start.x;
+                const dy = newY - start.y;
+                Object.keys(this.multiDragStart).forEach(id => {
+                    const d = this.devices.find(dev => dev.id === id);
+                    const s = this.multiDragStart[id];
+                    if (!d || !s) return;
+                    d.x = Math.max(0, s.x + dx);
+                    d.y = Math.max(0, s.y + dy);
+                    this.renderDevice(d);
+                });
+                this.renderGroupOutlines();
+            } else if (this.draggedGroup && this.groupDragStart) {
+                const start = this.groupDragStart[this.draggedDevice.id];
+                const dx = newX - start.x;
+                const dy = newY - start.y;
+                this.draggedGroup.deviceIds.forEach(id => {
+                    const d = this.devices.find(dev => dev.id === id);
+                    const s = this.groupDragStart[id];
+                    if (!d || !s) return;
+                    d.x = Math.max(0, s.x + dx);
+                    d.y = Math.max(0, s.y + dy);
+                    this.renderDevice(d);
+                });
+                this.renderGroupOutlines();
+            } else {
+                this.draggedDevice.x = newX;
+                this.draggedDevice.y = newY;
+                this.renderDevice(this.draggedDevice);
+            }
             this.updateConnections();
         }
         
@@ -328,9 +460,57 @@ const CanvasMixin = {
         }
     },
 
+    updateMarquee(x, y) {
+        const start = this.marqueeStart;
+        const minX = Math.min(start.x, x);
+        const minY = Math.min(start.y, y);
+        const maxX = Math.max(start.x, x);
+        const maxY = Math.max(start.y, y);
+        
+        if (!this.marqueeEl) {
+            this.marqueeEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            this.marqueeEl.setAttribute('class', 'marquee-select');
+            this.previewLayer.appendChild(this.marqueeEl);
+        }
+        this.marqueeEl.setAttribute('x', minX);
+        this.marqueeEl.setAttribute('y', minY);
+        this.marqueeEl.setAttribute('width', maxX - minX);
+        this.marqueeEl.setAttribute('height', maxY - minY);
+        
+        const hits = this.devices.filter(d =>
+            d.x < maxX && d.x + d.width > minX &&
+            d.y < maxY && d.y + d.height > minY
+        ).map(d => d.id);
+        
+        this.selectedDevices = Array.from(new Set([...(this.marqueeBase || []), ...hits]));
+        this.renderMultiSelectHighlight();
+    },
+
     onMouseUp(e) {
         if (this.readOnly) return;
+        
+        if (this.marqueeStart) {
+            const hadRect = !!this.marqueeEl;
+            this.marqueeStart = null;
+            this.marqueeBase = null;
+            if (this.marqueeEl) {
+                this.marqueeEl.remove();
+                this.marqueeEl = null;
+            }
+            if (hadRect) {
+                this.marqueeJustFinished = true;
+                if (this.selectedDevices.length) this.showSelectionPanel();
+            }
+            return;
+        }
+        
         this.draggedDevice = null;
+        this.draggedGroup = null;
+        this.multiDragStart = null;
+        this.draggedGroupBlock = null;
+        this.groupBlockStartBounds = null;
+        this.groupBlockDragOffset = null;
+        this.groupDragStart = null;
         this.endDragHistory();
         
         if (this.draggedTextbox) {
@@ -366,6 +546,11 @@ const CanvasMixin = {
     },
 
     onClick(e) {
+        if (this.marqueeJustFinished) {
+            this.marqueeJustFinished = false;
+            return;
+        }
+        
         const connectionGroup = e.target.closest('.connection-group');
         if (connectionGroup) {
             const connId = connectionGroup.dataset.connectionId;

@@ -1128,6 +1128,69 @@ input[type="checkbox"] {
     width: 120px;
 }
 
+.sheet-tab.group-workspace-tab {
+    background: rgba(62, 13, 129, 0.08);
+    border-color: var(--ict-violet);
+    color: var(--ict-violet);
+}
+
+.sheet-tab.group-workspace-tab:hover {
+    background: var(--ict-violet);
+    border-color: var(--ict-violet);
+    color: #fff;
+}
+
+.group-workspace-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 18px;
+    margin: 10px 18px 0 18px;
+    background: rgba(62, 13, 129, 0.08);
+    border: 1.5px solid var(--ict-violet);
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.group-workspace-bar .group-workspace-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ict-violet);
+}
+
+.group-workspace-bar button {
+    padding: 7px 16px;
+    border-radius: var(--pill);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.group-workspace-bar .group-workspace-back {
+    background: #ffffff;
+    border: 1.5px solid var(--ict-violet);
+    color: var(--ict-violet);
+}
+
+.group-workspace-bar .group-workspace-back:hover {
+    background: var(--ict-violet);
+    color: #fff;
+}
+
+.group-workspace-bar .group-workspace-expand {
+    background: var(--ict-violet);
+    border: 1.5px solid var(--ict-violet);
+    color: #fff;
+}
+
+.group-workspace-bar .group-workspace-expand:hover {
+    background: var(--ict-violet-hover, var(--ict-violet));
+    opacity: 0.9;
+}
+
 #btnAddSheet {
     width: 32px;
     height: 32px;
@@ -1198,6 +1261,8 @@ input[type="checkbox"] {
     min-width: 3000px;
     min-height: 2000px;
     cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
     font-family: Montserrat, 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
@@ -1213,6 +1278,89 @@ input[type="checkbox"] {
 .device-block.selected rect.body {
     stroke: var(--ict-blue);
     stroke-width: 2.5;
+}
+
+.device-block.multi-selected rect.body {
+    stroke: var(--ict-violet);
+    stroke-width: 2.5;
+    stroke-dasharray: 5 3;
+}
+
+.marquee-select {
+    fill: rgba(77, 73, 188, 0.1);
+    stroke: var(--ict-blue);
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
+    pointer-events: none;
+}
+
+.group-outline {
+    fill: rgba(62, 13, 129, 0.05);
+    stroke: var(--ict-violet);
+    stroke-width: 1.5;
+    stroke-dasharray: 9 5;
+}
+
+.group-label {
+    fill: var(--ict-violet);
+    font-size: 12px;
+    font-weight: 600;
+    user-select: none;
+}
+
+.group-collapsed-block {
+    cursor: move;
+}
+
+.group-collapsed-body {
+    fill: rgba(62, 13, 129, 0.08);
+    stroke: var(--ict-violet);
+    stroke-width: 2;
+}
+
+.group-collapsed-title {
+    fill: var(--ict-violet);
+    font-size: 13px;
+    font-weight: 700;
+    user-select: none;
+}
+
+.group-collapsed-divider {
+    stroke: var(--ict-violet);
+    stroke-width: 1;
+    opacity: 0.4;
+}
+
+.group-collapsed-item {
+    fill: #333;
+    font-size: 11px;
+    user-select: none;
+}
+
+.group-merged-connection {
+    fill: none;
+    stroke: var(--ict-violet);
+    stroke-width: 2;
+}
+
+.group-merged-badge {
+    fill: var(--ict-violet);
+    font-size: 10px;
+    font-weight: 600;
+    user-select: none;
+}
+
+.group-ws-ext-stub {
+    stroke: #94a3b8;
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+}
+
+.group-ws-ext-label {
+    fill: #475569;
+    font-size: 11px;
+    font-style: italic;
+    user-select: none;
 }
 
 .device-block text.label {

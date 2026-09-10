@@ -873,6 +873,10 @@ const ConnectionsMixin = {
         const existing = document.getElementById(conn.id);
         if (existing) existing.remove();
         
+        const fromGroup = this.findGroupForDevice ? this.findGroupForDevice(conn.fromDevice) : null;
+        const toGroup = this.findGroupForDevice ? this.findGroupForDevice(conn.toDevice) : null;
+        if ((fromGroup && fromGroup.collapsed) || (toGroup && toGroup.collapsed)) return;
+        
         const fromDevice = this.devices.find(d => d.id === conn.fromDevice);
         const toDevice = this.devices.find(d => d.id === conn.toDevice);
         const fromPort = fromDevice.outputs.find(p => p.id === conn.fromPort);
@@ -1018,6 +1022,8 @@ const ConnectionsMixin = {
         this.connections.forEach(conn => this.renderConnection(conn));
         this.bulkRender = false;
         this.drawCrossingBridges();
+        if (this.deviceGroups && this.deviceGroups.some(g => g.collapsed)) this.renderGroupOutlines();
+        if (this.activeGroupWorkspace) this.drawGroupWorkspaceExternalConnections();
     },
 
     cancelConnection() {

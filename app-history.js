@@ -12,12 +12,13 @@ const HistoryMixin = {
     captureHistoryState() {
         this.storeActiveSheet();
         const state = {
-            sheets: this.sheets.map(s => ({ id: s.id, name: s.name, devices: s.devices, connections: s.connections, textboxes: s.textboxes || [] })),
+            sheets: this.sheets.map(s => ({ id: s.id, name: s.name, devices: s.devices, connections: s.connections, textboxes: s.textboxes || [], deviceGroups: s.deviceGroups || [] })),
             activeSheet: this.activeSheet,
             nextDeviceId: this.nextDeviceId,
             nextConnectionId: this.nextConnectionId,
             nextTextboxId: this.nextTextboxId,
-            nextSheetId: this.nextSheetId
+            nextSheetId: this.nextSheetId,
+            nextDeviceGroupId: this.nextDeviceGroupId
         };
         return JSON.stringify(state);
     },
@@ -69,12 +70,18 @@ const HistoryMixin = {
         const data = JSON.parse(snapshot);
         this.historyRestoring = true;
         try {
+            this.activeGroupWorkspace = null;
             this.hideDeviceContextMenu();
             this.connectionStart = null;
             this.reconnect = null;
             this.bendDrag = null;
             this.draggedDevice = null;
             this.draggedTextbox = null;
+            this.draggedGroup = null;
+            this.groupDragStart = null;
+            this.draggedGroupBlock = null;
+            this.groupBlockStartBounds = null;
+            this.groupBlockDragOffset = null;
             if (this.previewLayer) this.previewLayer.innerHTML = '';
             this.deselectAll();
             
@@ -83,12 +90,14 @@ const HistoryMixin = {
                 name: s.name || `Blatt ${i + 1}`,
                 devices: s.devices || [],
                 connections: s.connections || [],
-                textboxes: s.textboxes || []
+                textboxes: s.textboxes || [],
+                deviceGroups: s.deviceGroups || []
             }));
             this.nextDeviceId = data.nextDeviceId || 1;
             this.nextConnectionId = data.nextConnectionId || 1;
             this.nextTextboxId = data.nextTextboxId || 1;
             this.nextSheetId = data.nextSheetId || (this.sheets.length + 1);
+            this.nextDeviceGroupId = data.nextDeviceGroupId || 1;
             
             let active = typeof data.activeSheet === 'number' ? data.activeSheet : 0;
             if (active < 0 || active >= this.sheets.length) active = 0;

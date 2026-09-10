@@ -183,7 +183,7 @@ const ExportMixin = {
     serializeDiagram() {
         this.storeActiveSheet();
         return {
-            sheets: this.sheets.map(s => ({ id: s.id, name: s.name, devices: s.devices, connections: s.connections, textboxes: s.textboxes || [] })),
+            sheets: this.sheets.map(s => ({ id: s.id, name: s.name, devices: s.devices, connections: s.connections, textboxes: s.textboxes || [], deviceGroups: s.deviceGroups || [] })),
             activeSheet: this.activeSheet,
             lineStyle: this.lineStyle,
             gridSize: this.gridSize,
@@ -197,6 +197,7 @@ const ExportMixin = {
             projectAuthor: this.projectAuthor,
             devices: this.devices,
             connections: this.connections,
+            deviceGroups: this.deviceGroups,
             templates: this.deviceTemplates,
             groups: this.groups,
             cableTypes: this.cableTypes
@@ -460,10 +461,11 @@ const ExportMixin = {
                 name: s.name || `Blatt ${i + 1}`,
                 devices: s.devices || [],
                 connections: s.connections || [],
-                textboxes: s.textboxes || []
+                textboxes: s.textboxes || [],
+                deviceGroups: s.deviceGroups || []
             }));
         } else {
-            this.sheets = [{ id: 1, name: 'Blatt 1', devices: data.devices || [], connections: data.connections || [], textboxes: data.textboxes || [] }];
+            this.sheets = [{ id: 1, name: 'Blatt 1', devices: data.devices || [], connections: data.connections || [], textboxes: data.textboxes || [], deviceGroups: data.deviceGroups || [] }];
         }
         this.nextSheetId = Math.max(0, ...this.sheets.map(s => parseInt(s.id) || 0)) + 1;
         
@@ -473,6 +475,8 @@ const ExportMixin = {
         this.nextDeviceId = Math.max(0, ...allDevices.map(d => parseInt(String(d.id).split('-')[1]) || 0)) + 1;
         this.nextConnectionId = Math.max(0, ...allConnections.map(c => parseInt(String(c.id).split('-')[1]) || 0)) + 1;
         this.nextTextboxId = Math.max(0, ...allTextboxes.map(t => parseInt(String(t.id).split('-')[1]) || 0)) + 1;
+        const allDeviceGroups = this.sheets.reduce((a, s) => a.concat(s.deviceGroups || []), []);
+        this.nextDeviceGroupId = Math.max(0, ...allDeviceGroups.map(g => parseInt(String(g.id).split('-')[1]) || 0)) + 1;
         
         let active = typeof data.activeSheet === 'number' ? data.activeSheet : 0;
         if (active < 0 || active >= this.sheets.length) active = 0;
