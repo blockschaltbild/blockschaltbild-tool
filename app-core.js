@@ -553,6 +553,29 @@ class BlockDiagramEditor {
 
 
     deleteSelected() {
+        if (this.selectedDevices && this.selectedDevices.length > 1) {
+            this.recordHistory();
+            const ids = new Set(this.selectedDevices);
+            this.connections = this.connections.filter(c => {
+                if (ids.has(c.fromDevice) || ids.has(c.toDevice)) {
+                    document.getElementById(c.id)?.remove();
+                    return false;
+                }
+                return true;
+            });
+            this.devices = this.devices.filter(d => {
+                if (ids.has(d.id)) {
+                    document.getElementById(d.id)?.remove();
+                    return false;
+                }
+                return true;
+            });
+            ids.forEach(id => this.removeDeviceFromGroups(id));
+            this.deselectAll();
+            this.cleanupConverters();
+            this.renderGroupOutlines();
+            return;
+        }
         if (!this.selectedElement) return;
         this.recordHistory();
         

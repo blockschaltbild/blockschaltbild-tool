@@ -52,19 +52,19 @@ const ModalsMixin = {
         `;
         
         panel.querySelector('#propName').addEventListener('change', (e) => {
-            this.applyDeviceChange(device, { name: e.target.value });
+            this.applyDeviceChange(device, { name: e.target.value }, { local: true });
         });
         panel.querySelector('#propArticle').addEventListener('change', (e) => {
-            this.applyDeviceChange(device, { article: e.target.value });
+            this.applyDeviceChange(device, { article: e.target.value }, { local: true });
         });
         panel.querySelector('#propType').addEventListener('change', (e) => {
-            this.applyDeviceChange(device, { type: e.target.value });
+            this.applyDeviceChange(device, { type: e.target.value }, { local: true });
         });
         panel.querySelector('#propGroup').addEventListener('change', (e) => {
-            this.applyDeviceChange(device, { group: e.target.value });
+            this.applyDeviceChange(device, { group: e.target.value }, { local: true });
         });
         panel.querySelector('#propColor').addEventListener('change', (e) => {
-            this.applyDeviceChange(device, { color: e.target.value });
+            this.applyDeviceChange(device, { color: e.target.value }, { local: true });
         });
         panel.querySelector('#propPlaceholder').addEventListener('change', (e) => {
             this.recordHistory();
@@ -270,7 +270,9 @@ const ModalsMixin = {
                 } else if (action === 'reset') {
                     this.resetDevice(device);
                 } else if (action === 'delete') {
-                    this.selectElement(device, 'device');
+                    if (!(this.selectedDevices.includes(device.id) && this.selectedDevices.length >= 2)) {
+                        this.selectElement(device, 'device');
+                    }
                     this.deleteSelected();
                 }
                 this.hideDeviceContextMenu();
@@ -2268,6 +2270,7 @@ const ModalsMixin = {
             outputCables: outputData.cables
         };
         this.addDeviceTemplate(template);
+        this.addDeviceToCanvas(template, 150, 100);
         this.hidePdfImportModal();
     },
 

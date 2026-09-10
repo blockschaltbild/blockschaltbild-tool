@@ -49,14 +49,12 @@ const EventsMixin = {
         document.getElementById('btnAddDevice').addEventListener('click', () => this.showDeviceModal());
         document.getElementById('btnAddPlaceholder').addEventListener('click', () => this.addPlaceholderDevice());
         document.getElementById('btnAddTextbox').addEventListener('click', () => this.addTextbox());
-        document.getElementById('btnExcelTemplate').addEventListener('click', () => this.downloadExcelTemplate());
         document.getElementById('deviceGroup').addEventListener('change', (e) => {
             document.getElementById('deviceColor').value = this.groupColor(e.target.value);
         });
         document.getElementById('pdfDeviceGroup').addEventListener('change', (e) => {
             document.getElementById('pdfDeviceColor').value = this.groupColor(e.target.value);
         });
-        document.getElementById('btnManageGroups').addEventListener('click', () => this.showGroupModal());
         document.getElementById('btnManageDevices').addEventListener('click', () => this.showDeviceManageModal());
         document.getElementById('btnManageCables').addEventListener('click', () => this.showCableModal());
         document.getElementById('btnExportLibrary').addEventListener('click', () => this.exportLibrary());
@@ -229,7 +227,7 @@ const EventsMixin = {
             const tag = (e.target.tagName || '').toLowerCase();
             const inField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
             if (!inField && this.handleShortcutKey(e)) return;
-            if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedElement) {
+            if (!inField && (e.key === 'Delete' || e.key === 'Backspace') && (this.selectedElement || (this.selectedDevices && this.selectedDevices.length))) {
                 e.preventDefault();
                 this.deleteSelected();
             }

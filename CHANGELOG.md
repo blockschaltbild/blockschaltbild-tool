@@ -3,6 +3,31 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.30.0 – 2026-09-10
+
+- Menü „Geräte" umbenannt in „Einfügen" und neu sortiert: zuerst „neues Gerät", „neuer Platzhalter", „neuer Text", dann ein Trennstrich, danach „Gerät importieren" (vormals „Geräte importieren"), „Geräte verwalten", „Kabel verwalten".
+- Die Menüpunkte „Excel-Vorlage" und „Gruppen verwalten" wurden aus diesem Menü entfernt. Die Excel-Vorlage lässt sich jetzt im Geräteadmin-Tool (`geraete-admin.html`) herunterladen, die zentrale Gruppenverwaltung erfolgt dort ebenfalls (Bereich „Gruppen").
+
+## Version 1.29.2 – 2026-09-10
+
+- Neu: Wird ein Gerät per Datenblatt(PDF)- oder Website-Import final angelegt, wird es jetzt automatisch zusätzlich in die aktuelle Zeichnung eingefügt (bisher landete es nur in der Gerätebibliothek und musste manuell platziert werden).
+
+## Version 1.29.1 – 2026-09-10
+
+- Fehlerbehebung: Sind mehrere Geräte per Maus markiert (Mehrfachauswahl), löschte Backspace/Entf sowie „Löschen" im Rechtsklick-Kontextmenü nur das zuletzt angeklickte bzw. das rechtsgeklickte Gerät. Jetzt werden bei aktiver Mehrfachauswahl alle markierten Geräte samt ihren Verbindungen gelöscht.
+
+## Version 1.29.0 – 2026-09-10
+
+- Neu: Kopieren/Einfügen (Strg+C / Strg+V) funktioniert jetzt auch für mehrere markierte Geräte und für Gerätegruppen, nicht mehr nur für ein einzelnes Gerät. Verbindungen zwischen den kopierten Geräten werden mit übernommen, bei einer kopierten Gruppe wird beim Einfügen eine neue Gruppe mit den eingefügten Geräten gebildet. Das Einfügen funktioniert auch zeichenblattübergreifend (auf einem anderen Blatt kopieren/einfügen).
+
+## Version 1.28.4 – 2026-09-10
+
+- Fehlerbehebung: Das Bearbeiten von Name, Artikelnummer, Typ, Gruppe oder Farbe im Eigenschaften-Panel eines Geräts wirkte sich auf ALLE gleichartigen Geräte in der Zeichnung sowie auf die Gerätebibliothek aus. Die Felder ändern jetzt nur noch das ausgewählte Gerät in der Zeichnung.
+
+## Version 1.28.3 – 2026-09-10
+
+- Fehlerbehebung: Im Feld „Typ" (und anderen Textfeldern der Geräteverwaltung) löschte die Backspace-Taste beim Bearbeiten des Textes stattdessen das markierte Gerät im Plan. Backspace/Entf löscht das Element jetzt nur noch, wenn der Fokus nicht in einem Eingabefeld liegt.
+
 ## Version 1.28.2 – 2026-09-10
 
 - Fehlerbehebung: Beim Geräteimport (Datenblatt/Website/PDF) zeigte die Auswahlliste „Gruppe" fest die fünf Standardgruppen (Ton, Video, Licht, Steuerung, Sonstiges). In der Geräteverwaltung neu angelegte oder umbenannte Gruppen fehlten dort bzw. gelöschte wurden weiter angezeigt. Die Auswahl wird jetzt aus der aktuellen (zentralen) Bibliothek aufgebaut und ist damit immer aktuell.

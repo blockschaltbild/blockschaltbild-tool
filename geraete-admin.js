@@ -407,6 +407,44 @@
         URL.revokeObjectURL(url);
     }
 
+    function downloadExcelTemplate() {
+        if (typeof XLSX === 'undefined') {
+            alert('Excel-Bibliothek nicht geladen. Bitte Internetverbindung prüfen.');
+            return;
+        }
+        const header = ['Name', 'Artikelnummer', 'Typ', 'Gruppe', 'Farbe', 'Eingänge', 'Ausgänge'];
+        const rows = [
+            header,
+            ['Yamaha CL5', 'CL5', 'Digital Mixer', 'Ton', '', 'IN 1:XLR, IN 2:XLR, IN 3:XLR', 'MAIN L:XLR, MAIN R:XLR'],
+            ['Barco E2', 'E2', 'Video Processor', 'Video', '', 'SDI 1:SDI, HDMI 1:HDMI', 'SDI OUT 1:SDI'],
+            ['', '', '', '', '', '', '']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 45 }, { wch: 45 }];
+
+        const info = XLSX.utils.aoa_to_sheet([
+            ['Hinweise zur Vorlage'],
+            [''],
+            ['Name', 'Pflichtfeld – Gerätebezeichnung'],
+            ['Artikelnummer', 'Optional'],
+            ['Typ', 'Optional, z. B. Digital Mixer'],
+            ['Gruppe', 'Gruppenname oder Gruppen-ID: ' + state.library.groups.map(g => `${g.name} (${g.id})`).join(', ')],
+            ['Farbe', 'Optional als Hex-Wert (#3498db). Leer = Farbe der Gruppe wird übernommen.'],
+            ['Eingänge', 'Kommagetrennt, Kabeltyp optional nach Doppelpunkt: IN 1:XLR, IN 2:XLR'],
+            ['Ausgänge', 'Kommagetrennt, Kabeltyp optional nach Doppelpunkt: MAIN L:XLR'],
+            [''],
+            ['Kabeltypen', state.library.cableTypes.join(', ')],
+            [''],
+            ['Import', 'Über "Gerät importieren" im Editor die ausgefüllte Datei auswählen.']
+        ]);
+        info['!cols'] = [{ wch: 18 }, { wch: 90 }];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Geräte');
+        XLSX.utils.book_append_sheet(wb, info, 'Hinweise');
+        XLSX.writeFile(wb, 'Geraete_Vorlage.xlsx');
+    }
+
     function templateKey(t) {
         return `${(t.name || '').trim().toLowerCase()}|${(t.article || '').trim().toLowerCase()}`;
     }
@@ -483,6 +521,7 @@
             setDirty(true); renderCables();
         });
         $('btnExportJson').addEventListener('click', exportJson);
+        $('btnExcelTemplate').addEventListener('click', downloadExcelTemplate);
         $('btnImportJson').addEventListener('click', () => $('fileImportJson').click());
         $('fileImportJson').addEventListener('change', importJson);
         window.addEventListener('beforeunload', (e) => {

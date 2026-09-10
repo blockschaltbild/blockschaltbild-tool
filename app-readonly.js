@@ -3,8 +3,8 @@ const ReadOnlyMixin = {
         'projectName', 'projectNumber', 'btnProjectSettings', 'btnUndo', 'btnRedo',
         'btnSave', 'btnSaveAs', 'btnCloudSave', 'btnCloudSaveAs', 'btnCloudShare', 'chkAutosave', 'autosaveMinutes', 'btnRestoreAutosave',
         'btnExportPDF', 'btnExportLists', 'btnExportDevices',
-        'btnImportDevices', 'btnExcelTemplate', 'btnAddDevice', 'btnAddPlaceholder', 'btnAddTextbox',
-        'btnManageDevices', 'btnManageGroups', 'btnManageCables',
+        'btnImportDevices', 'btnAddDevice', 'btnAddPlaceholder', 'btnAddTextbox',
+        'btnManageDevices', 'btnManageCables',
         'btnAutoConnect', 'btnClearConnections', 'btnCheckSignals', 'chkAutoConverter', 'btnCheckLengths',
         'chkSnapGrid', 'selLineStyle', 'gridSizeInput', 'btnAddSheet'
     ],

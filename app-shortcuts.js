@@ -8,8 +8,8 @@ const ShortcutsMixin = {
             { section: 'Bearbeiten', items: [
                 { label: 'Rückgängig', combos: [{ mod: true, keys: ['z'] }], run: () => this.undo() },
                 { label: 'Wiederherstellen', combos: [{ mod: true, keys: ['y'] }, { mod: true, shift: true, keys: ['z'] }], run: () => this.redo() },
-                { label: 'Markiertes Gerät kopieren', combos: [{ mod: true, keys: ['c'] }], run: () => this.copySelectedDevice() },
-                { label: 'Gerät einfügen', combos: [{ mod: true, keys: ['v'] }], run: () => this.pasteDevice() },
+                { label: 'Markierte Geräte/Gruppe kopieren', combos: [{ mod: true, keys: ['c'] }], run: () => this.copySelectedDevice() },
+                { label: 'Geräte einfügen (auch auf anderem Blatt)', combos: [{ mod: true, keys: ['v'] }], run: () => this.pasteDevice() },
                 { label: 'Markiertes Element löschen', combos: [{ keys: ['Delete'] }, { keys: ['Backspace'] }], info: true },
                 { label: 'Dialog schließen / Verbindung abbrechen', combos: [{ keys: ['Escape'] }], info: true }
             ]},
@@ -98,37 +98,94 @@ const ShortcutsMixin = {
         });
     },
 
+    getCopySourceDeviceIds() {
+        if (this.selectedGroupId) {
+            const group = this.deviceGroups.find(g => g.id === this.selectedGroupId);
+            if (group && group.deviceIds.length) return { ids: [...group.deviceIds], isGroup: true, groupName: group.name };
+        }
+        if (this.selectedDevices && this.selectedDevices.length) {
+            return { ids: [...this.selectedDevices], isGroup: false, groupName: null };
+        }
+        if (this.selectedElement && this.selectedElement.type === 'device') {
+            return { ids: [this.selectedElement.element.id], isGroup: false, groupName: null };
+        }
+        return null;
+    },
+
     copySelectedDevice() {
-        const sel = this.selectedElement;
-        if (!sel || sel.type !== 'device') return;
-        this.clipboardDevice = JSON.parse(JSON.stringify(sel.element));
+        const source = this.getCopySourceDeviceIds();
+        if (!source) return;
+        const devices = this.devices.filter(d => source.ids.includes(d.id)).map(d => JSON.parse(JSON.stringify(d)));
+        if (!devices.length) return;
+        const idSet = new Set(devices.map(d => d.id));
+        const connections = this.connections
+            .filter(c => idSet.has(c.fromDevice) && idSet.has(c.toDevice))
+            .map(c => JSON.parse(JSON.stringify(c)));
+        this.clipboardSelection = { devices, connections, isGroup: source.isGroup, groupName: source.groupName };
     },
 
     pasteDevice() {
-        const src = this.clipboardDevice;
-        if (!src) return;
-        const template = {
-            name: src.name,
-            type: src.type,
-            article: src.article || '',
-            group: src.group || 'other',
-            color: src.color,
-            placeholder: !!src.placeholder,
-            inputs: (src.inputs || []).map(p => p.name),
-            outputs: (src.outputs || []).map(p => p.name),
-            inputCables: (src.inputs || []).map(p => p.cable || ''),
-            outputCables: (src.outputs || []).map(p => p.cable || '')
-        };
+        const clip = this.clipboardSelection;
+        if (!clip || !clip.devices.length) return;
+        this.recordHistory();
         const offset = this.gridSize || 20;
-        const device = this.addDeviceToCanvas(template, src.x + offset, src.y + offset);
-        if (src.origin) device.origin = { ...src.origin };
-        if (src.width && src.height && (src.width !== device.width || src.height !== device.height)) {
-            device.width = src.width;
-            device.height = src.height;
-            this.renderDevice(device);
+        const idMap = {};
+        const newDevices = [];
+        clip.devices.forEach(src => {
+            const device = {
+                id: `device-${this.nextDeviceId++}`,
+                name: src.name,
+                type: src.type,
+                article: src.article || '',
+                group: src.group || 'other',
+                color: src.color,
+                x: this.snap(src.x + offset),
+                y: this.snap(src.y + offset),
+                width: src.width,
+                height: src.height,
+                placeholder: !!src.placeholder,
+                origin: src.origin ? { ...src.origin } : undefined,
+                inputs: (src.inputs || []).map(p => ({ ...p, connected: false })),
+                outputs: (src.outputs || []).map(p => ({ ...p, connected: false }))
+            };
+            idMap[src.id] = device.id;
+            this.devices.push(device);
+            newDevices.push(device);
+        });
+        newDevices.forEach(d => this.renderDevice(d));
+
+        clip.connections.forEach(c => {
+            const fromId = idMap[c.fromDevice];
+            const toId = idMap[c.toDevice];
+            if (!fromId || !toId) return;
+            const connection = { ...c, id: `conn-${this.nextConnectionId++}`, fromDevice: fromId, toDevice: toId };
+            const fromDevice = newDevices.find(d => d.id === fromId);
+            const toDevice = newDevices.find(d => d.id === toId);
+            const fromPort = fromDevice?.outputs.find(p => p.id === connection.fromPort);
+            const toPort = toDevice?.inputs.find(p => p.id === connection.toPort);
+            if (fromPort) fromPort.connected = true;
+            if (toPort) toPort.connected = true;
+            this.connections.push(connection);
+            this.renderConnection(connection);
+        });
+
+        if (clip.isGroup && newDevices.length >= 2) {
+            const num = this.nextDeviceGroupId++;
+            this.deviceGroups.push({ id: `devgroup-${num}`, name: clip.groupName ? `${clip.groupName} (Kopie)` : `Gruppe ${num}`, deviceIds: newDevices.map(d => d.id) });
         }
-        this.clipboardDevice = { ...src, x: device.x, y: device.y };
-        this.selectElement(device, 'device');
+        this.renderGroupOutlines();
+        this.drawCrossingBridges();
+
+        clip.devices.forEach((src, i) => { src.x = newDevices[i].x; src.y = newDevices[i].y; });
+
+        this.deselectAll();
+        if (newDevices.length === 1) {
+            this.selectElement(newDevices[0], 'device');
+        } else {
+            this.selectedDevices = newDevices.map(d => d.id);
+            this.renderMultiSelectHighlight();
+            this.showSelectionPanel();
+        }
     },
 
     focusDeviceSearch() {
