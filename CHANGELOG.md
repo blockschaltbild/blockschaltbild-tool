@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.28.1 – 2026-09-10
+
+- Offline-Start: `app-pwa.js` fehlte in der Dateiliste des Service Workers und wurde ergänzt.
+
 ## Version 1.28.0 – 2026-09-10
 
 - **Direktes Speichern ohne erneute Nachfrage:** Wurde eine Datei bereits einmal lokal gespeichert (oder über „Laden" geöffnet, im Browser unterstützt), überschreibt der „Speichern"-Button (bzw. Strg/Cmd+S) diese Datei jetzt direkt – ohne dass erneut nach Name und Speicherort gefragt wird.

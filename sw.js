@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.28.0';
+const CACHE_VERSION = '1.28.1';
 const CACHE_NAME = `blockschaltbild-${CACHE_VERSION}`;
 
 const APP_FILES = [
@@ -21,6 +21,7 @@ const APP_FILES = [
     './app-events.js',
     './app-bugreport.js',
     './app-readonly.js',
+    './app-pwa.js',
     './app-bootstrap.js',
     './supabase-config.js',
     './cloud-auth.js',
