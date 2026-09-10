@@ -1,8 +1,8 @@
 const ReadOnlyMixin = {
     readOnlyDisabledIds: [
         'projectName', 'projectNumber', 'btnProjectSettings', 'btnUndo', 'btnRedo',
-        'btnSave', 'btnCloudSave', 'btnCloudShare', 'chkAutosave', 'autosaveMinutes', 'btnRestoreAutosave',
-        'btnExportPDF', 'btnExportLists', 'btnExportDevices', 'btnPrint',
+        'btnSave', 'btnCloudSave', 'btnCloudSaveAs', 'btnCloudShare', 'chkAutosave', 'autosaveMinutes', 'btnRestoreAutosave',
+        'btnExportPDF', 'btnExportLists', 'btnExportDevices',
         'btnImportDevices', 'btnExcelTemplate', 'btnAddDevice', 'btnAddPlaceholder', 'btnAddTextbox',
         'btnManageDevices', 'btnManageGroups', 'btnManageCables',
         'btnAutoConnect', 'btnClearConnections', 'btnCheckSignals', 'chkAutoConverter', 'btnCheckLengths',

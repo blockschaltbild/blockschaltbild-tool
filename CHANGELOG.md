@@ -3,6 +3,18 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.20.4 – 2026-09-10
+
+- Button „Drucken" aus dem Menü „Datei" entfernt.
+
+## Version 1.20.3 – 2026-09-10
+
+- **Neu: „Cloud speichern unter ..."** (Menü „Datei"): Legt das aktuell geöffnete Projekt als neue, eigenständige Kopie unter frei wählbarem Namen/Projekt-Nr. in der Cloud ab. Das ursprüngliche Cloud-Projekt bleibt dabei unverändert; ab dem Speichern-unter arbeitet man in der neuen Kopie weiter (auch „In Cloud speichern" sichert danach in die Kopie).
+
+## Version 1.20.2 – 2026-09-10
+
+- Cloud-Liste „Meine Cloud-Projekte": Bei mit mir geteilten Projekten steht jetzt gut sichtbar in einer eigenen Zeile „👤 Freigegeben von: <E-Mail des Eigentümers>" (statt nur unauffällig neben dem Speicherdatum).
+
 ## Version 1.20.1 – 2026-09-10
 
 - **Gerätepool wächst automatisch mit:** Jedes neu angelegte Gerät (manuell, per PDF-/Websuche-Import oder JSON-Bibliotheksimport) wird von jedem angemeldeten Nutzer automatisch und im Hintergrund zur zentralen Gerätebibliothek beigetragen – nicht mehr nur, wenn ein Admin aktiv „veröffentlicht“. Neue Datenbankfunktion `submit_device_to_library` (rein additiv: bestehende Geräte/Gruppen/Kabeltypen werden dabei nie verändert oder überschrieben, Duplikate anhand Name + Artikel-Nr. werden übersprungen).

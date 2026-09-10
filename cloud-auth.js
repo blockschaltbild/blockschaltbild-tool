@@ -83,6 +83,7 @@
         .cloud-row .cl-name{font-weight:600;color:#222;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .cloud-row .cl-number{font-size:.8rem;color:#3e0d81;font-weight:600;margin-top:2px;}
         .cloud-row .cl-meta{font-size:.76rem;color:#888;margin-top:2px;}
+        .cloud-row .cl-owner{font-size:.8rem;color:#3e0d81;margin-top:2px;}
         .cloud-row .cl-actions{display:flex;gap:6px;flex:0 0 auto;}
         .cloud-row .cl-actions button,.cloud-row .cl-actions button.danger{width:auto;margin:0;padding:6px 12px;border-radius:6px;
             border:1px solid #ccc;background:#fff;color:#333;cursor:pointer;font-size:.8rem;font-weight:500;white-space:nowrap;}
@@ -272,6 +273,25 @@
                 </div>
             </div>`;
         document.body.appendChild(shareModal);
+
+        // "Speichern unter"-Modal (Projekt als Kopie unter neuem Namen ablegen)
+        const saveAsModal = document.createElement('div');
+        saveAsModal.className = 'modal';
+        saveAsModal.id = 'saveAsModal';
+        saveAsModal.innerHTML = `
+            <div class="modal-content">
+                <h2>In Cloud speichern unter ...</h2>
+                <p class="hint">Legt das aktuelle Projekt als neue, eigenständige Kopie in der Cloud ab. Das ursprüngliche Cloud-Projekt bleibt unverändert; ab jetzt wird in die neue Kopie gespeichert.</p>
+                <form id="saveAsForm">
+                    <label>Name: <input type="text" id="saveAsName" placeholder="Projektname" autocomplete="off" required></label>
+                    <label>Projektnummer: <input type="text" id="saveAsNumber" placeholder="Projekt-Nr. (optional)"></label>
+                    <div class="modal-buttons">
+                        <button type="submit" id="btnConfirmSaveAs">Als Kopie speichern</button>
+                        <button type="button" id="btnCancelSaveAs">Abbrechen</button>
+                    </div>
+                </form>
+            </div>`;
+        document.body.appendChild(saveAsModal);
 
         // Admin Modal
         const adminModal = document.createElement('div');
@@ -605,6 +625,56 @@
         }
     }
 
+    // Aktuelles Projekt als neue, eigenstaendige Kopie unter neuem Namen ablegen
+    function openSaveAsModal() {
+        if (!state.user || !isActive(state.profile)) { alert('Bitte zuerst anmelden, um in der Cloud zu speichern.'); return; }
+        const editor = window.editor;
+        if (!editor || typeof editor.serializeDiagram !== 'function') return;
+        if (editor.readOnly || state.currentAccess === 'view') {
+            alert('Dieses Projekt wurde dir nur zum Lesen freigegeben und kann nicht kopiert werden.');
+            return;
+        }
+        $('saveAsName').value = (editor.projectName && editor.projectName !== 'Neues Projekt') ? editor.projectName + ' – Kopie' : 'Neues Projekt – Kopie';
+        $('saveAsNumber').value = editor.projectNumber || '';
+        $('saveAsModal').classList.add('active');
+        setTimeout(() => { $('saveAsName').focus(); $('saveAsName').select(); }, 0);
+    }
+
+    async function saveAsCopyToCloud(e) {
+        e.preventDefault();
+        const editor = window.editor;
+        const name = $('saveAsName').value.trim() || 'Unbenannt';
+        const projectNumber = $('saveAsNumber').value.trim();
+        const btn = $('btnConfirmSaveAs');
+        btn.disabled = true;
+        setCloudStatus('☁ Speichere Kopie ...');
+        try {
+            editor.projectName = name;
+            editor.projectNumber = projectNumber;
+            document.getElementById('projectName').value = name;
+            if (document.getElementById('projectNumber')) document.getElementById('projectNumber').value = projectNumber;
+            if (typeof editor.updateProjectDisplay === 'function') editor.updateProjectDisplay();
+            const data = editor.serializeDiagram();
+            const result = await client.from('projects')
+                .insert({ user_id: state.user.id, name, project_number: projectNumber, data })
+                .select('id,updated_at').single();
+            if (result.error) throw result.error;
+            setCurrentProjectId(result.data.id);
+            state.loadedUpdatedAt = result.data.updated_at || null;
+            hideLiveUpdate();
+            joinLive(result.data.id);
+            $('saveAsModal').classList.remove('active');
+            const t = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            setCloudStatus('☁ Als Kopie gespeichert ' + t);
+        } catch (err) {
+            console.warn('Speichern unter fehlgeschlagen:', err);
+            setCloudStatus('⚠ Speichern unter fehlgeschlagen');
+            alert('Speichern unter fehlgeschlagen: ' + dbErr(err));
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     // Verstaendliche Meldung, wenn die Datenbank noch nicht auf den aktuellen Stand gebracht wurde
     function dbErr(error) {
         const m = (error && error.message) || String(error);
@@ -648,12 +718,13 @@
             let badge = '';
             if (!own) badge = perm === 'edit' ? '<span class="cl-share edit">Bearbeiten</span>' : '<span class="cl-share view">Nur lesen</span>';
             else if (sharedByMe[p.id]) badge = `<span class="cl-share owner">Geteilt mit ${sharedByMe[p.id]}</span>`;
-            const from = !own && share && share.owner_email ? ` · freigegeben von ${escapeHtml(share.owner_email)}` : (!own ? ' · freigegeben' : '');
+            const fromOwner = !own ? `<div class="cl-owner">👤 Freigegeben von: <b>${escapeHtml(share && share.owner_email ? share.owner_email : 'unbekannt')}</b></div>` : '';
             row.innerHTML = `
                 <div class="cl-main">
                     <div class="cl-name">${escapeHtml(p.name || 'Unbenannt')}${badge}</div>
                     <div class="cl-number">${p.project_number ? 'Projekt-Nr. ' + escapeHtml(p.project_number) : 'Keine Projekt-Nr.'}</div>
-                    <div class="cl-meta">Gespeichert: ${when}${from}${p.id === openId ? ' · aktuell geöffnet' : ''}</div>
+                    ${fromOwner}
+                    <div class="cl-meta">Gespeichert: ${when}${p.id === openId ? ' · aktuell geöffnet' : ''}</div>
                 </div>
                 <div class="cl-actions">
                     <button type="button" data-open="${p.id}" data-perm="${perm}" data-owner="${escapeHtml(share && share.owner_email ? share.owner_email : '')}">Öffnen</button>
@@ -1192,7 +1263,11 @@
         $('menuLogout').onclick = () => client.auth.signOut();
         if ($('btnCloudLoad')) $('btnCloudLoad').onclick = () => openCloudProjects();
         if ($('btnCloudSave')) $('btnCloudSave').onclick = () => saveCurrentToCloud({ manual: true });
+        if ($('btnCloudSaveAs')) $('btnCloudSaveAs').onclick = () => openSaveAsModal();
         if ($('btnCloudShare')) $('btnCloudShare').onclick = () => openShareForCurrent();
+        $('saveAsForm').addEventListener('submit', saveAsCopyToCloud);
+        $('btnCancelSaveAs').onclick = () => $('saveAsModal').classList.remove('active');
+        $('saveAsModal').addEventListener('click', (e) => { if (e.target === $('saveAsModal')) $('saveAsModal').classList.remove('active'); });
         $('btnLiveReload').onclick = () => reloadFromCloud(false);
         $('btnLiveIgnore').onclick = () => hideLiveUpdate();
         window.addEventListener('beforeunload', () => leaveLive());

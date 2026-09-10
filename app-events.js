@@ -124,11 +124,6 @@ const EventsMixin = {
             this.gridSize = size;
             this.updateGrid();
         });
-        document.getElementById('btnPrint').addEventListener('click', () => {
-            if (this.readOnly) { this.notifyReadOnly(); return; }
-            window.print();
-        });
-        
         document.getElementById('btnZoomIn').addEventListener('click', () => this.setZoom(this.zoom + 0.1));
         document.getElementById('btnZoomOut').addEventListener('click', () => this.setZoom(this.zoom - 0.1));
         document.getElementById('btnFitView').addEventListener('click', () => this.fitView());
