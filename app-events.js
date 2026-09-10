@@ -62,10 +62,15 @@ const EventsMixin = {
         document.getElementById('btnImportLibrary').addEventListener('click', () => document.getElementById('fileImportLibrary').click());
         document.getElementById('fileImportLibrary').addEventListener('change', (e) => this.importLibrary(e));
         document.getElementById('btnResetLibrary').addEventListener('click', () => {
-            if (confirm('Die zentrale Gerätebibliothek wirklich auf die Standardgeräte zurücksetzen? Eigene Geräte, Gruppen und Kabeltypen gehen dabei verloren.')) {
+            if (confirm('Die lokale Gerätebibliothek wirklich auf die Standardgeräte zurücksetzen? Eigene Geräte, Gruppen und Kabeltypen gehen dabei verloren.')) {
                 this.resetLibrary();
                 this.renderManageDevicesList();
                 alert('Bibliothek wurde zurückgesetzt.');
+            }
+        });
+        document.getElementById('btnPublishLibrary').addEventListener('click', () => {
+            if (confirm('Aktuellen lokalen Stand als zentrale Gerätebibliothek veröffentlichen? Alle Nutzer erhalten diesen Stand danach automatisch.')) {
+                this.publishLibraryToCloud();
             }
         });
         

@@ -3,6 +3,17 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.20.1 – 2026-09-10
+
+- **Gerätepool wächst automatisch mit:** Jedes neu angelegte Gerät (manuell, per PDF-/Websuche-Import oder JSON-Bibliotheksimport) wird von jedem angemeldeten Nutzer automatisch und im Hintergrund zur zentralen Gerätebibliothek beigetragen – nicht mehr nur, wenn ein Admin aktiv „veröffentlicht“. Neue Datenbankfunktion `submit_device_to_library` (rein additiv: bestehende Geräte/Gruppen/Kabeltypen werden dabei nie verändert oder überschrieben, Duplikate anhand Name + Artikel-Nr. werden übersprungen).
+- Datenbank-Erweiterung: `submit_device_to_library` in `supabase/setup.sql` – muss einmalig im Supabase-SQL-Editor ausgeführt werden.
+
+## Version 1.20.0 – 2026-09-10
+
+- **Neues Admin-Tool „Geräteverwaltung“** (`geraete-admin.html`, separat vom Editor aufrufbar über Konto-Menü „Admin – Geräteverwaltung ...“): zentrale, online gepflegte Gerätebibliothek mit Übersicht, Suche, Sortierung (per ↑/↓ innerhalb der Gruppe), Bearbeiten/Duplizieren/Löschen von Geräten, Verwaltung von Gruppen und Kabeltypen sowie Import/Export als JSON.
+- **Zentrale Gerätebibliothek für alle Nutzer:** Der Blockschaltbild Editor lädt die im Admin-Tool veröffentlichte Bibliothek beim Anmelden automatisch (`device_library_state` in Supabase) – jeder Nutzer sieht damit immer denselben aktuellen Gerätebestand. Admins können den lokalen Bibliotheksstand über „Geräte verwalten → In zentrale Bibliothek veröffentlichen“ auch direkt aus dem Editor heraus zentral speichern (z. B. nach einem PDF-/Websuche-Import).
+- Datenbank-Erweiterung: neue Tabelle `device_library_state` in `supabase/setup.sql` – muss einmalig im Supabase-SQL-Editor ausgeführt werden (siehe `SUPABASE_SETUP.md`).
+
 ## Version 1.19.0 – 2026-09-10
 
 - Live-Zusammenarbeit an Cloud-Projekten (Supabase Realtime, keine Datenbankänderung nötig):

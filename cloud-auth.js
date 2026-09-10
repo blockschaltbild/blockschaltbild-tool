@@ -210,6 +210,7 @@
                 </label>
                                 <button type="button" id="menuAdmin" style="display:none;">Admin – Nutzerverwaltung …</button>
                 <button type="button" id="menuRestore" style="display:none;">Admin – Papierkorb &amp; Sicherungen …</button>
+                <button type="button" id="menuDevices" style="display:none;">Admin - Geraeteverwaltung ...</button>
                 <button type="button" id="menuLogout" style="color:#b3261e;">Abmelden</button>
             </div>`;
         // Anzeige, wer das geoeffnete Cloud-Projekt gerade ebenfalls offen hat
@@ -416,6 +417,49 @@
         renderAccount();
         hookEditorDirty();
         if (state.currentProjectId && state.currentAccess !== 'view') joinLive(state.currentProjectId);
+        window.dispatchEvent(new CustomEvent('cloud-auth-ready', { detail: { admin: state.profile && state.profile.role === 'admin' } }));
+    }
+
+    // Zentrale Geraetebibliothek: EIN Datensatz (id=true) mit der kompletten
+    // Bibliothek, siehe supabase/setup.sql (device_library_state).
+    async function fetchDeviceLibrary() {
+        if (!state.user || !isActive(state.profile)) return null;
+        const { data, error } = await client
+            .from('device_library_state')
+            .select('data,updated_at,updated_by_email')
+            .eq('id', true)
+            .maybeSingle();
+        if (error) { console.warn('Zentrale Gerätebibliothek konnte nicht geladen werden:', error.message); return null; }
+        return data;
+    }
+
+    // Beitragsfunktion: JEDER aktive Nutzer darf ueber die RPC-Funktion
+    // submit_device_to_library neue Geraete zur zentralen Bibliothek beitragen
+    // (rein additiv, siehe supabase/setup.sql). So waechst der Geraetepool mit
+    // jedem im Editor neu angelegten Geraet automatisch, ohne dass Nutzer
+    // Schreibrechte auf die gesamte Tabelle brauchen.
+    async function submitDeviceToLibrary(template, group, cableTypes) {
+        if (!state.user || !isActive(state.profile)) return { error: null, skipped: true };
+        const { error } = await client.rpc('submit_device_to_library', {
+            p_template: template,
+            p_group: group || null,
+            p_cable_types: (cableTypes && cableTypes.length) ? cableTypes : null
+        });
+        if (error) { console.warn('Gerät konnte nicht zur zentralen Bibliothek beigetragen werden:', error.message); return { error: error.message }; }
+        return { error: null };
+    }
+
+    async function publishDeviceLibrary(libraryData) {
+        if (!state.user || !(state.profile && state.profile.role === 'admin')) return { error: 'Nur Administratoren dürfen die zentrale Gerätebibliothek ändern.' };
+        const { error } = await client.from('device_library_state').upsert({
+            id: true,
+            data: libraryData,
+            updated_at: new Date().toISOString(),
+            updated_by: state.user.id,
+            updated_by_email: state.user.email
+        });
+        if (error) return { error: error.message };
+        return { error: null };
     }
 
     async function handleSubmit(e) {
@@ -476,6 +520,7 @@
         else info.innerHTML = `Angemeldet als <b>${state.user.email}</b><br>Zugang noch <b>${daysLeft(state.profile)} Tage</b>`;
         $('menuAdmin').style.display = admin ? 'block' : 'none';
         $('menuRestore').style.display = admin ? 'block' : 'none';
+        $('menuDevices').style.display = admin ? 'block' : 'none';
         $('chkCloudSync').checked = getSyncEnabled();
     }
 
@@ -1156,6 +1201,7 @@
         $('shareModal').addEventListener('click', (e) => { if (e.target === $('shareModal')) $('shareModal').classList.remove('active'); });
         $('menuAdmin').onclick = () => { accMenu.classList.remove('open'); openAdmin(); };
         $('menuRestore').onclick = () => { accMenu.classList.remove('open'); openRestore(); };
+        $('menuDevices').onclick = () => { accMenu.classList.remove('open'); window.open('geraete-admin.html', '_blank'); };
         $('btnCloseRestore').onclick = () => $('restoreModal').classList.remove('active');
         $('btnReloadRestore').onclick = () => openRestore();
         $('restoreFilter').oninput = () => renderRestore();
@@ -1173,7 +1219,12 @@
     window.cloudSync = {
         onLocalSave: function () { if (getSyncEnabled()) saveCurrentToCloud(); },
         isEnabled: getSyncEnabled,
-        markNewProject: function () { setCurrentProjectId(null); }
+        markNewProject: function () { setCurrentProjectId(null); },
+        isAdmin: function () { return !!(state.profile && state.profile.role === 'admin'); },
+        isReady: function () { return !!(state.user && isActive(state.profile)); },
+        fetchDeviceLibrary: fetchDeviceLibrary,
+        publishDeviceLibrary: publishDeviceLibrary,
+        submitDeviceToLibrary: submitDeviceToLibrary
     };
 
     // ---------------------------------------------------------------- Init

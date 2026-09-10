@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geräteverwaltung – Blockschaltbild Editor</title>
+<link rel="icon" href="favicon.png">
+<style>
+    :root {
+        --ict-blue: #4d49bc;
+        --ict-blue-hover: #3f3ba6;
+        --ict-violet: #3e0d81;
+        --ict-gray: #f0f0f7;
+        --ict-gray-2: #e6e5f0;
+        --ict-border: rgba(0,0,0,.08);
+        --ict-danger: #d94a4a;
+        --ict-success: #2fa36b;
+        --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Montserrat, 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--ict-gray); color: #000; font-weight: 500; }
+    header { background: linear-gradient(135deg, var(--ict-violet), var(--ict-blue)); color: #fff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    header h1 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+    header .sub { font-size: .78rem; opacity: .85; }
+    header .acc { display: flex; align-items: center; gap: 10px; font-size: .82rem; }
+    header button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: .8rem; }
+    header button:hover { background: rgba(255,255,255,.28); }
+    main { max-width: 1200px; margin: 0 auto; padding: 18px 16px 60px; }
+    .hint { color: #555; font-size: .85rem; margin: 6px 0 14px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .toolbar input[type="search"] { flex: 1; min-width: 180px; padding: 8px 10px; border: 1px solid var(--ict-border); border-radius: 8px; }
+    button.primary { background: var(--ict-blue); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: .85rem; }
+    button.primary:hover { background: var(--ict-blue-hover); }
+    button.secondary { background: #fff; border: 1px solid var(--ict-border); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: .85rem; }
+    button.secondary:hover { background: var(--ict-gray-2); }
+    button.danger { background: #fff; color: var(--ict-danger); border: 1px solid #f2b8b8; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: .78rem; }
+    button.small { padding: 4px 8px; font-size: .72rem; border-radius: 6px; border: 1px solid var(--ict-border); background: #fff; cursor: pointer; }
+    .layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: #fff; border-radius: var(--radius); border: 1px solid var(--ict-border); padding: 14px; }
+    .panel h2 { font-size: .95rem; margin: 0 0 10px; }
+    .group-row, .cable-row { display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-bottom: 1px solid #f2f2f5; font-size: .84rem; }
+    .group-row .swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+    .group-row .gname { flex: 1; cursor: pointer; }
+    .group-row.active { background: var(--ict-gray-2); border-radius: 6px; }
+    .device-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .device-table th, .device-table td { padding: 7px 8px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+    .device-table th { color: var(--ict-violet); font-weight: 700; }
+    .device-table .dt-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .io-preview { color: #666; font-size: .76rem; }
+    .gate { max-width: 380px; margin: 80px auto; background: #fff; border-radius: 14px; padding: 26px; box-shadow: 0 24px 64px rgba(33,17,55,.15); }
+    .gate h2 { margin-bottom: 6px; }
+    .gate p { font-size: .85rem; color: #555; margin-bottom: 14px; }
+    .gate input { width: 100%; padding: 9px 10px; margin-bottom: 10px; border: 1px solid var(--ict-border); border-radius: 8px; }
+    .gate button { width: 100%; padding: 10px; background: var(--ict-blue); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; }
+    .gate .msg { font-size: .82rem; margin-top: 10px; }
+    .gate .msg.error { color: var(--ict-danger); }
+    .gate .msg.success { color: var(--ict-success); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(20,10,40,.45); display: none; align-items: center; justify-content: center; z-index: 500; padding: 16px; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; }
+    .modal-box h3 { margin: 0 0 12px; }
+    .modal-box label { display: block; font-size: .8rem; font-weight: 700; margin: 10px 0 4px; }
+    .modal-box input[type="text"], .modal-box select, .modal-box input[type="color"] { width: 100%; padding: 7px 9px; border: 1px solid var(--ict-border); border-radius: 8px; }
+    .port-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+    .port-row input { flex: 1; }
+    .port-row select { width: 140px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    #libStatus { font-size: .78rem; color: #666; margin-left: auto; }
+    .empty-hint { color: #888; font-size: .84rem; padding: 14px 0; }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate" style="display:none;">
+    <h2>Geräteverwaltung</h2>
+    <p>Anmeldung mit deinem Blockschaltbild-Editor-Konto. Dieses Tool ist nur für Administratoren.</p>
+    <form id="gateForm">
+        <input type="email" id="gateEmail" placeholder="E-Mail" autocomplete="username" required>
+        <input type="password" id="gatePassword" placeholder="Passwort" autocomplete="current-password" required>
+        <button type="submit">Anmelden</button>
+    </form>
+    <div class="msg" id="gateMsg"></div>
+    <p class="hint" style="margin-top:14px;"><a href="index.html">&larr; Zurück zum Blockschaltbild Editor</a></p>
+</div>
+
+<div id="app" style="display:none;">
+    <header>
+        <div>
+            <h1>🗂 Geräteverwaltung</h1>
+            <div class="sub">Zentrale, online gepflegte Gerätebibliothek für alle Nutzer des Blockschaltbild Editors</div>
+        </div>
+        <div class="acc">
+            <span id="accWho"></span>
+            <button id="btnSignOut">Abmelden</button>
+            <a href="index.html" style="color:#fff;font-size:.82rem;">Zum Editor</a>
+        </div>
+    </header>
+    <main>
+        <p class="hint" id="libInfo"></p>
+        <div class="toolbar">
+            <input type="search" id="searchInput" placeholder="🔍 Gerät suchen (Name, Typ, Artikel-Nr.) ...">
+            <button class="primary" id="btnAddDevice">+ Neues Gerät</button>
+            <button class="secondary" id="btnImportJson">Bibliothek importieren (JSON)</button>
+            <input type="file" id="fileImportJson" accept=".json" style="display:none">
+            <button class="secondary" id="btnExportJson">Exportieren (JSON)</button>
+            <button class="secondary" id="btnReload">Neu laden</button>
+            <button class="primary" id="btnSaveLib" disabled>💾 Änderungen speichern</button>
+            <span id="libStatus"></span>
+        </div>
+
+        <div class="layout">
+            <div class="panel">
+                <h2>Gruppen</h2>
+                <div id="groupList"></div>
+                <button class="secondary" style="margin-top:10px;width:100%;" id="btnAddGroup">+ Gruppe</button>
+                <h2 style="margin-top:20px;">Kabeltypen</h2>
+                <div id="cableList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                <button class="secondary" style="margin-top:10px;width:100%;" id="btnAddCable">+ Kabeltyp</button>
+            </div>
+            <div class="panel">
+                <h2 id="deviceListTitle">Alle Geräte</h2>
+                <div id="deviceListWrap"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="deviceModal">
+    <div class="modal-box">
+        <h3 id="deviceModalTitle">Gerät bearbeiten</h3>
+        <label>Name</label>
+        <input type="text" id="fName">
+        <label>Typ</label>
+        <input type="text" id="fType">
+        <label>Artikel-Nr.</label>
+        <input type="text" id="fArticle">
+        <label>Gruppe</label>
+        <select id="fGroup"></select>
+        <label>Farbe</label>
+        <input type="color" id="fColor">
+        <label>Eingänge</label>
+        <div id="fInputs"></div>
+        <button class="small" id="btnAddInput" type="button">+ Eingang</button>
+        <label>Ausgänge</label>
+        <div id="fOutputs"></div>
+        <button class="small" id="btnAddOutput" type="button">+ Ausgang</button>
+        <div class="modal-actions">
+            <button class="secondary" id="btnCancelDevice" type="button">Abbrechen</button>
+            <button class="primary" id="btnSaveDevice" type="button">Speichern</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="geraete-admin.js"></script>
+</body>
+</html>

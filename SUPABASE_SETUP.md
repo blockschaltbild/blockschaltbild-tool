@@ -32,6 +32,17 @@ Sicherung vor jedem Überschreiben/Löschen).
 > die Policies `projects_select_shared` / `projects_update_shared` und der Trigger
 > `trg_projects_protect_owner`. Ohne dieses Update meldet der Freigabe-Dialog
 > „relation project_shares does not exist".
+>
+> **Ab Version 1.20.0 (zentrale Geräteverwaltung):** `setup.sql` erneut ausführen.
+> Neu ist die Tabelle `device_library_state` – sie speichert die im neuen Tool
+> `geraete-admin.html` gepflegte Gerätebibliothek, die alle Nutzer automatisch
+> laden. Nur Admins dürfen sie direkt ändern (lesbar für alle aktiven Nutzer).
+>
+> **Ab Version 1.20.1:** `setup.sql` erneut ausführen. Neu ist die Funktion
+> `submit_device_to_library` – darüber trägt JEDER aktive Nutzer automatisch
+> im Hintergrund neu angelegte Geräte zur zentralen Bibliothek bei (rein
+> additiv, keine Schreibrechte auf die Tabelle nötig). So wächst der
+> Gerätepool von selbst mit der Nutzung.
 
 ## 2. E-Mail-Bestätigung & Weiterleitung
 

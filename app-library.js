@@ -68,6 +68,59 @@ const LibraryMixin = {
         }
         
         this.renderDeviceLibrary();
+        this.watchCentralLibrary();
+    },
+
+    // Zentrale, online gepflegte Geraetebibliothek: sobald die Cloud-Anmeldung bereit ist,
+    // wird der aktuelle Stand geladen, sodass alle Nutzer dieselbe Geraeteliste sehen.
+    // Verwaltet wird sie im separaten Admin-Tool "geraete-admin.html".
+    watchCentralLibrary() {
+        if (this._centralLibraryWatching) return;
+        this._centralLibraryWatching = true;
+        const sync = () => this.syncLibraryFromCloud();
+        window.addEventListener('cloud-auth-ready', sync);
+        if (window.cloudSync && window.cloudSync.isReady && window.cloudSync.isReady()) sync();
+    },
+
+    async syncLibraryFromCloud() {
+        if (!window.cloudSync || typeof window.cloudSync.fetchDeviceLibrary !== 'function') return;
+        try {
+            const row = await window.cloudSync.fetchDeviceLibrary();
+            const statusEl = document.getElementById('libraryCloudStatus');
+            const btnPublish = document.getElementById('btnPublishLibrary');
+            if (btnPublish) btnPublish.style.display = (window.cloudSync.isAdmin && window.cloudSync.isAdmin()) ? 'inline-block' : 'none';
+            if (row && row.data && (Array.isArray(row.data.templates) || Array.isArray(row.data.groups))) {
+                if (Array.isArray(row.data.templates)) this.deviceTemplates = row.data.templates;
+                if (Array.isArray(row.data.groups) && row.data.groups.length) this.groups = row.data.groups;
+                if (Array.isArray(row.data.cableTypes) && row.data.cableTypes.length) this.cableTypes = row.data.cableTypes;
+                this.saveLibrary();
+                this.updateGroupFilter();
+                this.renderDeviceLibrary();
+                if (typeof this.renderManageDevicesList === 'function') this.renderManageDevicesList();
+                if (statusEl) {
+                    const when = row.updated_at ? new Date(row.updated_at).toLocaleString('de-DE') : '';
+                    statusEl.textContent = `☁ Zentrale Bibliothek – zuletzt aktualisiert${row.updated_by_email ? ' von ' + row.updated_by_email : ''}${when ? ' am ' + when : ''}. Verwaltet im Admin-Tool "Geräteverwaltung".`;
+                }
+            } else if (statusEl) {
+                statusEl.textContent = 'ℹ Es wurde noch keine zentrale Bibliothek veröffentlicht (siehe Admin-Tool "Geräteverwaltung").';
+            }
+        } catch (err) {
+            console.warn('Zentrale Gerätebibliothek konnte nicht synchronisiert werden:', err);
+        }
+    },
+
+    async publishLibraryToCloud() {
+        if (!window.cloudSync || typeof window.cloudSync.publishDeviceLibrary !== 'function') return;
+        const btn = document.getElementById('btnPublishLibrary');
+        if (btn) btn.disabled = true;
+        const result = await window.cloudSync.publishDeviceLibrary(this.libraryData());
+        if (btn) btn.disabled = false;
+        if (result && result.error) {
+            alert('Fehler beim Veröffentlichen: ' + result.error);
+        } else {
+            alert('Die aktuelle Bibliothek wurde als zentrale Gerätebibliothek veröffentlicht. Alle Nutzer erhalten sie automatisch beim nächsten Öffnen des Tools.');
+            this.syncLibraryFromCloud();
+        }
     },
 
     addMissingDefaults() {
@@ -164,6 +217,7 @@ const LibraryMixin = {
                 known.add(key);
                 this.deviceTemplates.push(t);
                 templates++;
+                this.contributeDeviceToCloud(t);
             });
         }
         
@@ -186,6 +240,22 @@ const LibraryMixin = {
         this.deviceTemplates.push(template);
         this.saveLibrary();
         this.renderDeviceLibrary();
+        this.contributeDeviceToCloud(template);
+    },
+
+    // Traegt ein neu angelegtes (oder per PDF/Websuche importiertes) Geraet
+    // automatisch im Hintergrund zur zentralen, online gepflegten Bibliothek
+    // bei, damit der Geraetepool stetig waechst und allen Nutzern zur
+    // Verfuegung steht. Rein additiv (siehe supabase/setup.sql), scheitert
+    // still, falls Cloud/Anmeldung nicht verfuegbar ist.
+    contributeDeviceToCloud(template) {
+        if (!window.cloudSync || typeof window.cloudSync.submitDeviceToLibrary !== 'function') return;
+        if (!template || template.placeholder) return;
+        const group = this.groups.find(g => g.id === (template.group || 'other')) || null;
+        const usedCables = [...(template.inputCables || []), ...(template.outputCables || [])].filter(Boolean);
+        window.cloudSync.submitDeviceToLibrary(template, group, usedCables)
+            .then((res) => { if (res && res.error) console.warn('Beitrag zur zentralen Bibliothek fehlgeschlagen:', res.error); })
+            .catch((err) => console.warn('Beitrag zur zentralen Bibliothek fehlgeschlagen:', err));
     },
 
     renderDeviceLibrary() {

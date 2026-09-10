@@ -300,6 +300,121 @@ create trigger trg_projects_protect_owner
     for each row execute function public.protect_project_owner();
 
 -- ---------------------------------------------------------------------------
+-- 8b) Zentrale Geraetebibliothek: EIN Datensatz mit der kompletten Bibliothek
+--     (Geraete-Vorlagen, Gruppen, Kabeltypen) als JSON, damit alle Nutzer beim
+--     Oeffnen des Tools automatisch denselben aktuellen Stand sehen. Nur Admins
+--     duerfen aendern; jeder aktive Nutzer darf lesen. Separates Verwaltungs-
+--     tool: geraete-admin.html.
+-- ---------------------------------------------------------------------------
+create table if not exists public.device_library_state (
+    id             boolean primary key default true check (id),
+    data           jsonb not null default '{"templates":[],"groups":[],"cableTypes":[]}'::jsonb,
+    updated_at     timestamptz not null default now(),
+    updated_by     uuid references auth.users(id),
+    updated_by_email text
+);
+
+alter table public.device_library_state enable row level security;
+
+drop policy if exists device_library_select_active on public.device_library_state;
+drop policy if exists device_library_insert_admin  on public.device_library_state;
+drop policy if exists device_library_update_admin  on public.device_library_state;
+
+create policy device_library_select_active on public.device_library_state
+    for select using (public.is_active());
+create policy device_library_insert_admin on public.device_library_state
+    for insert with check (public.is_admin());
+create policy device_library_update_admin on public.device_library_state
+    for update using (public.is_admin()) with check (public.is_admin());
+
+-- ---------------------------------------------------------------------------
+-- 8c) Beitragsfunktion: JEDER aktive Nutzer darf ueber diese Funktion neue
+--     Geraete (und ggf. neue Gruppen/Kabeltypen) zur zentralen Bibliothek
+--     BEITRAGEN, ohne direktes Schreibrecht auf die Tabelle zu haben. Die
+--     Funktion laeuft mit erhoehten Rechten (SECURITY DEFINER), prueft aber
+--     selbst is_active() und aendert NUR additiv: bestehende Geraete/Gruppen/
+--     Kabeltypen werden nie ueberschrieben oder geloescht, Duplikate (gleicher
+--     Name + Artikelnummer) werden uebersprungen. So waechst der Geraetepool
+--     automatisch mit jedem neu angelegten Geraet aller Nutzer.
+-- ---------------------------------------------------------------------------
+create or replace function public.submit_device_to_library(
+    p_template jsonb,
+    p_group jsonb default null,
+    p_cable_types text[] default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    cur_data jsonb;
+    templates jsonb;
+    groups jsonb;
+    cable_arr jsonb;
+    new_key text;
+    found boolean;
+    item jsonb;
+    c text;
+begin
+    if not public.is_active() then
+        raise exception 'Nur aktive Nutzer duerfen Geraete beitragen.';
+    end if;
+    if p_template is null or coalesce(trim(p_template->>'name'), '') = '' then
+        raise exception 'Geraetename fehlt.';
+    end if;
+
+    insert into public.device_library_state (id, data)
+        values (true, '{"templates":[],"groups":[],"cableTypes":[]}'::jsonb)
+        on conflict (id) do nothing;
+
+    select data into cur_data from public.device_library_state where id = true for update;
+    templates := coalesce(cur_data->'templates', '[]'::jsonb);
+    groups    := coalesce(cur_data->'groups', '[]'::jsonb);
+    cable_arr := coalesce(cur_data->'cableTypes', '[]'::jsonb);
+
+    new_key := lower(trim(coalesce(p_template->>'name', ''))) || '|' || lower(trim(coalesce(p_template->>'article', '')));
+    found := false;
+    for item in select * from jsonb_array_elements(templates) loop
+        if lower(trim(coalesce(item->>'name', ''))) || '|' || lower(trim(coalesce(item->>'article', ''))) = new_key then
+            found := true;
+            exit;
+        end if;
+    end loop;
+    if not found then
+        templates := templates || jsonb_build_array(p_template);
+    end if;
+
+    if p_group is not null and coalesce(p_group->>'id', '') <> '' then
+        found := false;
+        for item in select * from jsonb_array_elements(groups) loop
+            if item->>'id' = p_group->>'id' then found := true; exit; end if;
+        end loop;
+        if not found then
+            groups := groups || jsonb_build_array(p_group);
+        end if;
+    end if;
+
+    if p_cable_types is not null then
+        foreach c in array p_cable_types loop
+            if c is not null and trim(c) <> '' and not (cable_arr ? c) then
+                cable_arr := cable_arr || to_jsonb(c);
+            end if;
+        end loop;
+    end if;
+
+    update public.device_library_state
+        set data = jsonb_build_object('templates', templates, 'groups', groups, 'cableTypes', cable_arr),
+            updated_at = now(),
+            updated_by = auth.uid(),
+            updated_by_email = auth.jwt() ->> 'email'
+        where id = true;
+end;
+$$;
+
+grant execute on function public.submit_device_to_library(jsonb, jsonb, text[]) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- 8) DICH als Administrator freischalten.
 --    Zuerst ganz normal in der App registrieren und die E-Mail bestaetigen,
 --    danach EINMALIG die folgende Zeile mit deiner E-Mail ausfuehren:
