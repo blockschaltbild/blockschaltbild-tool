@@ -189,6 +189,7 @@ const CanvasMixin = {
     },
 
     onMouseDown(e) {
+        if (this.readOnly) { this.readOnlyMouseDown(e); return; }
         const target = e.target;
         const deviceBlock = target.closest('.device-block');
         const port = target.closest('.port');
@@ -328,6 +329,7 @@ const CanvasMixin = {
     },
 
     onMouseUp(e) {
+        if (this.readOnly) return;
         this.draggedDevice = null;
         this.endDragHistory();
         

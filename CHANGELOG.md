@@ -3,6 +3,47 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.19.0 – 2026-09-10
+
+- Live-Zusammenarbeit an Cloud-Projekten (Supabase Realtime, keine Datenbankänderung nötig):
+  - **Anwesenheitsanzeige** oben rechts: „👥 max@firma.de hat das Projekt offen" bzw. „… bearbeitet gerade" (pulsierender Punkt, sobald jemand ungespeicherte Änderungen hat). Beim Überfahren erscheint die Liste aller Nutzer mit Rolle (Eigentümer/Bearbeiten/Nur lesen) und Status.
+  - **Automatische Aktualisierung:** Speichert ein anderer Nutzer das Projekt in der Cloud, wird der neue Stand bei allen, die keine eigenen ungespeicherten Änderungen haben (z. B. Nur-Lesen-Betrachter), sofort nachgeladen – aktuelles Blatt und Zoom bleiben erhalten. Hinweis „🔄 Aktualisiert – Änderungen von … übernommen".
+  - **Neu-laden-Leiste:** Hat man selbst ungespeicherte Änderungen, erscheint stattdessen eine blaue Leiste „… hat um HH:MM eine neue Version gespeichert" mit den Buttons **Neu laden** (eigene Änderungen verwerfen) und **Ignorieren**.
+  - **Konfliktschutz beim Speichern:** Wurde das Projekt seit dem eigenen Laden von jemand anderem gespeichert, fragt das Tool vor dem Überschreiben nach (die überschriebene Version bleibt als Sicherung in `project_backups`).
+- Hinweis: Es handelt sich um Speicher-basierte Synchronisation, kein gleichzeitiges Zeichnen am selben Objekt in Echtzeit. Änderungen werden sichtbar, sobald der andere Nutzer speichert (manuell oder per Autosave mit aktivierter Cloud-Synchronisation).
+
+## Version 1.18.1 – 2026-09-09
+
+- Fehlerbehebung Freigeben („Could not find the table 'public.project_shares' in the schema cache"): Die Tabelle `project_shares` war in der Datenbank noch nicht angelegt – `supabase/setup.sql` muss im Supabase-SQL-Editor (neu) ausgeführt werden (siehe `SUPABASE_SETUP.md`).
+- Setup-Skript robuster gemacht: `auth.email()` ist keine Standardfunktion aller Supabase-Instanzen und hätte die Ausführung des Freigabe-Teils abbrechen lassen – ersetzt durch `auth.jwt() ->> 'email'` (Funktion `share_permission` und Policy `shares_select_invited`).
+
+## Version 1.18.0 – 2026-09-09
+
+- Projekte freigeben: Cloud-Projekte lassen sich per E-Mail-Adresse mit anderen Nutzern teilen (Menü „Datei → ☁ Freigeben …" für das aktuelle Projekt oder Button „Freigeben" in „Aus Cloud laden …"). Je Person wählbar: **Bearbeiten** (alle Beteiligten arbeiten am selben Cloud-Projekt und speichern es gemeinsam) oder **Nur lesen**. Freigaben lassen sich nachträglich ändern oder entfernen; „✉ Einladen" öffnet eine vorbereitete E-Mail im Mailprogramm. Die Zuordnung erfolgt über die Anmelde-E-Mail, der Eingeladene muss zum Zeitpunkt der Freigabe noch nicht registriert sein.
+- Nur-Lesen-Modus: Wird ein nur lesend freigegebenes Projekt geöffnet, erscheint ein gelber Hinweisbalken; Speichern (lokal, Cloud, Autosave), Drucken, PDF-/Listen-/Excel-Export, Geräte einfügen/importieren, Verbindungen, Textfelder, Blätter, Projektdaten, Bibliotheksverwaltung, Undo/Redo, Kontextmenü, Drag & Drop, Tastenkürzel (außer Ansicht/Zoom) und Eigenschaften-Änderungen sind deaktiviert – sowohl in der Oberfläche als auch in den zugehörigen Funktionen. Auswahl, Zoom, Blattwechsel und Ansehen bleiben möglich. Der Modus endet mit „Neu", „Laden" oder dem Öffnen eines eigenen/bearbeitbaren Projekts.
+- Cloud-Liste zeigt bei geteilten Projekten „Bearbeiten"/„Nur lesen" und den Eigentümer, bei eigenen Projekten „Geteilt mit N". Eingeladene können fremde Projekte nicht löschen oder weitergeben (auch serverseitig über RLS gesperrt).
+- Datenbank: neue Tabelle `project_shares`, Policies für geteilte Projekte und Schutz des Eigentümers – `supabase/setup.sql` erneut ausführen (siehe `SUPABASE_SETUP.md`).
+
+## Version 1.17.3 – 2026-09-09
+
+- Konto-Menü: Hinweis „Cloud speichern / laden: Menü „Datei“" entfernt – die Funktionen sind bereits direkt im Menü „Datei“ verfügbar.
+
+## Version 1.17.2 – 2026-09-09
+
+- Fehlerbehebung Cloud-Speichern: Der Status-Hinweis („☁ In Cloud gesichert …" bzw. „⚠ Cloud-Speichern fehlgeschlagen") erschien bisher im Konto-Widget der Menüleiste und machte das Widget je nach Text bis zu ~200 px breiter. Überschritt die Zeile dadurch die Fensterbreite, brach die flexible Menüleiste um: Sie wurde höher und ordnete Zoom-Steuerung und Konto-/Profil-Anzeige neu an. Der Hinweis erscheint jetzt als fester Toast unten rechts (klickbar zum Ausblenden, Erfolgsmeldungen verschwinden nach 6 Sekunden) und verändert die Menüleiste nicht mehr.
+- Konto-Widget klebt jetzt direkt neben der Zoom-Steuerung am rechten Rand (kein zweiter `margin-left:auto`-Abstand mehr); im mobilen Layout (bis 1100 px) bleibt es wie bisher rechts ausgerichtet.
+
+## Version 1.17.1 – 2026-09-09
+
+- Cloud-Konten (Supabase): Anmeldung mit E-Mail/Passwort, Selbstregistrierung mit E-Mail-Bestätigung. Neue Nutzer erhalten automatisch 30 Tage Zugang; danach ist der Zugang gesperrt, bis ein Administrator verlängert.
+- Projekte werden beim Speichern zusätzlich in der persönlichen Cloud gesichert (sichtbarer Hinweis „☁ In Cloud gesichert", in den Kontoeinstellungen abschaltbar). Jeder Nutzer sieht ausschließlich seine eigenen Projekte (serverseitig über Row Level Security erzwungen).
+- Neuer Dialog „Meine Cloud-Projekte": gespeicherte Projekte öffnen oder löschen. Jede Zeile zeigt Projektname, Projekt-Nr. und Speicherdatum (TT.MM.JJJJ, HH:MM); das aktuell geöffnete Projekt ist hervorgehoben. Behoben: Der globale Stil für `button.danger` (volle Breite) hatte die Zeile zusammengedrückt, sodass Name/Nummer/Datum nicht lesbar waren.
+- Schutz vor versehentlichem Löschen: „Löschen" verschiebt Cloud-Projekte nur in einen Papierkorb (Soft-Delete); Nutzer können nichts endgültig löschen. Ein Datenbank-Trigger sichert vor jedem Überschreiben/Löschen automatisch den alten Stand (letzte 20 je Projekt, bleiben auch nach endgültigem Löschen erhalten).
+- Cloud-Speichern und „Aus Cloud laden …“ sind jetzt im Menü „Datei“ (neben Speichern/Laden); im Konto-Menü bleibt der Sync-Schalter. Eine fehlende Datenbank-Aktualisierung wird mit klarem Hinweis auf setup.sql gemeldet.
+- Neuer Admin-Dialog „Papierkorb & Sicherungen": alle Projekte aller Nutzer mit Filter; aus dem Papierkorb wiederherstellen, ältere Stände zurückspielen, endgültig gelöschte Projekte aus der Sicherung neu anlegen, endgültig löschen.
+- Admin-Bereich (nur für Administratoren): Nutzerliste mit Status, Zugang um 30 Tage verlängern, sperren/entsperren, Rolle ändern, Projektanzahl je Nutzer.
+- Einrichtung: siehe `SUPABASE_SETUP.md` und `supabase/setup.sql`.
+
 ## Version 1.16.7 – 2026-09-08
 
 - Datenblatt-Import: Neuer Parser für Datenblätter mit Ein-/Ausgangs-Tabelle (z. B. PureLink PT-HDBT-1020C-RX): Zeilen „Eingänge 1x HDBT (RJ45)", „Ausgänge 1x USB 3.2 Gen1 (USB-C)", „Inputs 2x HDMI, 1x DP" werden direkt in Anschlüsse übersetzt (Zähler „Nx" pro Eintrag, Steckertyp aus Beschreibung vor Klammer). Ergebnis: Name „HDBaseT 3.0 USB-C Video- und Daten-Receiver", Artikel „PT-HDBT-1020C-RX", Typ Receiver, Gruppe Video, 1 Eingang HDBaseT (Cat5/6), 1 Ausgang USB-C – statt bisher „PureLink HDCP 2" mit erfundenen HDMI-Ports.

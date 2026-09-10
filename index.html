@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockschaltbild Editor</title>
-    <link rel="icon" type="image/png" href="favicon.png?v=1.16.7">
+    <link rel="icon" type="image/png" href="favicon.png?v=1.19.0">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#4d49bc">
     <meta name="application-name" content="Blockschaltbild Editor">
@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.16.7">
+    <link rel="stylesheet" href="styles.css?v=1.19.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="version.js?v=1.16.7"></script>
-    <script src="bugreport-config.js?v=1.16.7"></script>
-    <script src="toolbar-menu.js?v=1.16.7"></script>
+    <script src="version.js?v=1.19.0"></script>
+    <script src="bugreport-config.js?v=1.19.0"></script>
+    <script src="toolbar-menu.js?v=1.19.0"></script>
 </head>
 <body>
     <div class="app-container">
@@ -55,6 +55,10 @@
                         <button id="btnSave" title="Speichern">Speichern</button>
                         <button id="btnLoad" title="Laden">Laden</button>
                         <input type="file" id="fileLoad" accept=".ict,.json" style="display:none">
+                        <div class="menu-separator"></div>
+                        <button id="btnCloudSave" title="Aktuelles Projekt in der Cloud sichern">☁ In Cloud speichern</button>
+                        <button id="btnCloudLoad" title="Gespeicherte Cloud-Projekte öffnen">☁ Aus Cloud laden …</button>
+                        <button id="btnCloudShare" title="Aktuelles Projekt für andere Nutzer freigeben (Bearbeiten oder Nur lesen)">☁ Freigeben …</button>
                         <div class="menu-separator"></div>
                         <div class="menu-autosave" title="Diagramm automatisch im Browser sichern (localStorage)">
                             <label><input type="checkbox" id="chkAutosave" checked> Autosave</label>
@@ -117,11 +121,13 @@
                 </div>
             </nav>
 
-            <div class="toolbar-group zoom-controls">
-                <button id="btnZoomOut" title="Verkleinern">−</button>
-                <span id="zoomLevel">100%</span>
-                <button id="btnZoomIn" title="Vergrößern">+</button>
-                <button id="btnFitView" title="An Fenster anpassen">Anpassen</button>
+            <div class="toolbar-right">
+                <div class="toolbar-group zoom-controls">
+                    <button id="btnZoomOut" title="Verkleinern">−</button>
+                    <span id="zoomLevel">100%</span>
+                    <button id="btnZoomIn" title="Vergrößern">+</button>
+                    <button id="btnFitView" title="An Fenster anpassen">Anpassen</button>
+                </div>
             </div>
         </header>
 
@@ -529,21 +535,25 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
-    <script src="logo.js?v=1.16.7"></script>
+    <script src="logo.js?v=1.19.0"></script>
     <script>
         document.getElementById('brandLogo').src = ICT_LOGO_DATA_URL;
     </script>
-    <script src="app-core.js?v=1.16.7"></script>
-    <script src="app-library.js?v=1.16.7"></script>
-    <script src="app-canvas.js?v=1.16.7"></script>
-    <script src="app-connections.js?v=1.16.7"></script>
-    <script src="app-modals.js?v=1.16.7"></script>
-    <script src="app-export.js?v=1.16.7"></script>
-    <script src="app-history.js?v=1.16.7"></script>
-    <script src="app-shortcuts.js?v=1.16.7"></script>
-    <script src="app-events.js?v=1.16.7"></script>
-    <script src="app-bugreport.js?v=1.16.7"></script>
-    <script src="app-bootstrap.js?v=1.16.7"></script>
-    <script src="app-pwa.js?v=1.16.7"></script>
+    <script src="app-core.js?v=1.19.0"></script>
+    <script src="app-library.js?v=1.19.0"></script>
+    <script src="app-canvas.js?v=1.19.0"></script>
+    <script src="app-connections.js?v=1.19.0"></script>
+    <script src="app-modals.js?v=1.19.0"></script>
+    <script src="app-export.js?v=1.19.0"></script>
+    <script src="app-history.js?v=1.19.0"></script>
+    <script src="app-shortcuts.js?v=1.19.0"></script>
+    <script src="app-events.js?v=1.19.0"></script>
+    <script src="app-bugreport.js?v=1.19.0"></script>
+    <script src="app-readonly.js?v=1.19.0"></script>
+    <script src="app-bootstrap.js?v=1.19.0"></script>
+    <script src="app-pwa.js?v=1.19.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js?v=1.19.0"></script>
+    <script src="cloud-auth.js?v=1.19.0"></script>
 </body>
 </html>

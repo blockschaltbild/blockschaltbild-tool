@@ -8,11 +8,13 @@ Object.assign(
     HistoryMixin,
     ShortcutsMixin,
     EventsMixin,
-    BugReportMixin
+    BugReportMixin,
+    ReadOnlyMixin
 );
 
 document.addEventListener('DOMContentLoaded', () => {
     window.editor = new BlockDiagramEditor();
+    window.editor.installReadOnlyGuards();
     
     const versionEl = document.getElementById('appVersion');
     if (versionEl && typeof APP_VERSION !== 'undefined') versionEl.textContent = APP_VERSION;
@@ -24,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.querySelector('.canvas-wrapper').addEventListener('drop', (e) => {
         e.preventDefault();
+        if (window.editor.readOnly) { window.editor.notifyReadOnly(); return; }
         
         let templateIdx = '';
         if (e.dataTransfer) {

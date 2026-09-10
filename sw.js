@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.16.7';
+const CACHE_VERSION = '1.19.0';
 const CACHE_NAME = `blockschaltbild-${CACHE_VERSION}`;
 
 const APP_FILES = [
@@ -19,7 +19,10 @@ const APP_FILES = [
     './app-shortcuts.js',
     './app-events.js',
     './app-bugreport.js',
+    './app-readonly.js',
     './app-bootstrap.js',
+    './supabase-config.js',
+    './cloud-auth.js',
     './favicon.png',
     './manifest.webmanifest',
     './icons/icon-192.png',
@@ -31,7 +34,8 @@ const CDN_FILES = [
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
 self.addEventListener('install', (event) => {
@@ -55,7 +59,7 @@ function isCacheable(request) {
     if (request.method !== 'GET') return false;
     const url = new URL(request.url);
     if (url.origin === self.location.origin) return true;
-    return url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+    return url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
 }
 
 self.addEventListener('fetch', (event) => {

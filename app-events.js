@@ -119,7 +119,10 @@ const EventsMixin = {
             this.gridSize = size;
             this.updateGrid();
         });
-        document.getElementById('btnPrint').addEventListener('click', () => window.print());
+        document.getElementById('btnPrint').addEventListener('click', () => {
+            if (this.readOnly) { this.notifyReadOnly(); return; }
+            window.print();
+        });
         
         document.getElementById('btnZoomIn').addEventListener('click', () => this.setZoom(this.zoom + 0.1));
         document.getElementById('btnZoomOut').addEventListener('click', () => this.setZoom(this.zoom - 0.1));
@@ -197,6 +200,7 @@ const EventsMixin = {
             const deviceBlock = e.target.closest('.device-block');
             if (!deviceBlock) return;
             e.preventDefault();
+            if (this.readOnly) { this.notifyReadOnly(); return; }
             const device = this.devices.find(d => d.id === deviceBlock.dataset.deviceId);
             if (!device) return;
             this.draggedDevice = null;
@@ -215,6 +219,10 @@ const EventsMixin = {
             if (!inField && this.handleShortcutKey(e)) return;
             if (e.key === 'Delete' && this.selectedElement) {
                 this.deleteSelected();
+            }
+            if (this.readOnly && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                this.notifyReadOnly();
             }
             if (e.key === 'Escape') {
                 this.hideDeviceContextMenu();

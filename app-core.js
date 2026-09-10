@@ -230,7 +230,7 @@ class BlockDiagramEditor {
             const label = document.createElement('span');
             label.textContent = sheet.name;
             tab.appendChild(label);
-            if (this.sheets.length > 1) {
+            if (this.sheets.length > 1 && !this.readOnly) {
                 const close = document.createElement('span');
                 close.className = 'sheet-close';
                 close.textContent = '×';
@@ -579,6 +579,8 @@ class BlockDiagramEditor {
         this.updateProjectDisplay();
         this.deselectAll();
         this.markSaved('');
+        if (this.readOnly) this.setReadOnly(false);
+        if (window.cloudSync && typeof window.cloudSync.markNewProject === 'function') window.cloudSync.markNewProject();
     }
 
 

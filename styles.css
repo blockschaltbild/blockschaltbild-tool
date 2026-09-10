@@ -470,6 +470,18 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     margin-left: auto;
 }
 
+/* Rechte Toolbar-Gruppe: Zoom-Steuerung und Konto-Widget (cloud-auth.js) bleiben
+   als Einheit am rechten Rand - aendert sich die Breite des Konto-Widgets (z.B.
+   Sync-Status), bricht die Menueleiste dadurch nicht mehr um. */
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .zoom-controls span {
     min-width: 54px;
     text-align: center;
@@ -2307,5 +2319,62 @@ button.danger:hover {
     .form-row {
         flex-direction: column;
         gap: 0;
+    }
+}
+
+
+/* ---------------------------------------------------------------- Nur-Lesen-Modus (geteilte Projekte) */
+.read-only-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 18px 0 18px;
+    padding: 8px 14px;
+    background: #fff4d6;
+    border: 1px solid #f9d057;
+    border-radius: 8px;
+    color: #5a4300;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+.read-only-banner .ro-lock { font-size: 1rem; }
+.read-only-banner.flash { animation: ro-flash 0.6s ease; }
+@keyframes ro-flash {
+    0% { background: #ff997f; }
+    100% { background: #fff4d6; }
+}
+body.read-only .toolbar button:disabled,
+body.read-only .toolbar input:disabled,
+body.read-only .toolbar select:disabled,
+body.read-only .menu-panel button:disabled,
+body.read-only .menu-panel input:disabled,
+body.read-only .menu-panel select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+body.read-only #deviceLibrary,
+body.read-only #propertiesPanel {
+    pointer-events: none;
+    opacity: 0.55;
+}
+body.read-only .diagram-canvas .device-block,
+body.read-only .diagram-canvas .textbox-block,
+body.read-only .diagram-canvas .port,
+body.read-only .diagram-canvas .conn-bend,
+body.read-only .diagram-canvas .conn-handle {
+    cursor: default !important;
+}
+body.read-only .diagram-canvas .conn-bend,
+body.read-only .diagram-canvas .conn-handle {
+    display: none;
+}
+@media print {
+    body.read-only .app-container { display: none !important; }
+    body.read-only::before {
+        content: "Dieses Projekt wurde nur zum Lesen freigegeben und kann nicht gedruckt werden.";
+        display: block;
+        padding: 40px;
+        font-family: sans-serif;
+        font-size: 14pt;
     }
 }

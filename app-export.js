@@ -213,6 +213,7 @@ const ExportMixin = {
         a.click();
         URL.revokeObjectURL(url);
         this.markSaved(`Datei ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`);
+        if (window.cloudSync && typeof window.cloudSync.onLocalSave === 'function') window.cloudSync.onLocalSave();
     },
 
     buildFileName(ext, suffix = '') {
@@ -389,8 +390,10 @@ const ExportMixin = {
                 this.updateLoading('Projekt wird geladen ...', 8, 'Projektdaten werden analysiert');
                 await this.nextFrame();
                 const data = JSON.parse(event.target.result);
+                if (this.readOnly) this.setReadOnly(false);
                 this.recordHistory();
                 await this.applyDiagramData(data);
+                if (window.cloudSync && typeof window.cloudSync.markNewProject === 'function') window.cloudSync.markNewProject();
             } catch (err) {
                 this.hideLoading();
                 alert('Fehler beim Laden: ' + err.message);

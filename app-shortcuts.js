@@ -56,6 +56,11 @@ const ShortcutsMixin = {
                 if (item.info || !item.run) continue;
                 if (!item.combos.some(c => this.comboMatches(c, e))) continue;
                 if (modalOpen && item.buttonId !== 'btnShowShortcuts') return false;
+                if (this.readOnly && section.section !== 'Ansicht') {
+                    e.preventDefault();
+                    this.notifyReadOnly();
+                    return true;
+                }
                 e.preventDefault();
                 item.run();
                 return true;
