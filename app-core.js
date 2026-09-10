@@ -27,6 +27,7 @@ class BlockDiagramEditor {
         this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes, deviceGroups: this.deviceGroups }];
         this.activeSheet = 0;
         this.nextSheetId = 2;
+        this.fileHandle = null;
         this.projectName = 'Neues Projekt';
         this.projectNumber = '';
         this.eventFrom = '';
@@ -612,6 +613,7 @@ class BlockDiagramEditor {
         this.activeSheet = 0;
         this.nextSheetId = 2;
         this.nextTextboxId = 1;
+        this.fileHandle = null;
         this.renderSheetTabs();
         this.devicesLayer.innerHTML = '';
         this.connectionsLayer.innerHTML = '';

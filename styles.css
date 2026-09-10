@@ -1893,6 +1893,11 @@ input[type="checkbox"] {
     margin-left: 0;
 }
 
+.pdf-group-item {
+    padding-left: 30px;
+    background: rgba(0, 0, 0, 0.03);
+}
+
 #autoConnectPreview {
     max-height: 300px;
     overflow-y: auto;

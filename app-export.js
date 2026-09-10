@@ -204,7 +204,56 @@ const ExportMixin = {
         };
     },
 
-    saveDiagram() {
+    async saveDiagram() {
+        if (this.fileHandle) {
+            const ok = await this.writeToFileHandle(this.fileHandle);
+            if (ok) return;
+            this.fileHandle = null;
+        }
+        if (window.showSaveFilePicker) {
+            await this.saveDiagramAs();
+            return;
+        }
+        this.saveDiagramAsDownload();
+    },
+
+    async saveDiagramAs() {
+        if (!window.showSaveFilePicker) {
+            this.saveDiagramAsDownload();
+            return;
+        }
+        let handle;
+        try {
+            handle = await window.showSaveFilePicker({
+                suggestedName: this.buildFileName('ict'),
+                types: [{ description: 'ICT-Blockschaltbild', accept: { 'application/json': ['.ict', '.json'] } }]
+            });
+        } catch (err) {
+            if (err && err.name === 'AbortError') return;
+            alert('Fehler beim Öffnen des Speicherdialogs: ' + err.message);
+            return;
+        }
+        const ok = await this.writeToFileHandle(handle);
+        if (ok) this.fileHandle = handle;
+    },
+
+    async writeToFileHandle(handle) {
+        try {
+            const data = this.serializeDiagram();
+            const writable = await handle.createWritable();
+            await writable.write(JSON.stringify(data, null, 2));
+            await writable.close();
+            this.markSaved(`Datei ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`);
+            if (window.cloudSync && typeof window.cloudSync.onLocalSave === 'function') window.cloudSync.onLocalSave();
+            return true;
+        } catch (err) {
+            if (err && err.name === 'AbortError') return true;
+            console.warn('Direktes Speichern fehlgeschlagen, verwende Download-Fallback:', err);
+            return false;
+        }
+    },
+
+    saveDiagramAsDownload() {
         const data = this.serializeDiagram();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -375,20 +424,49 @@ const ExportMixin = {
         }
     },
 
+    async openDiagramFile() {
+        if (window.showOpenFilePicker) {
+            let handles;
+            try {
+                handles = await window.showOpenFilePicker({
+                    types: [{ description: 'ICT-Blockschaltbild', accept: { 'application/json': ['.ict', '.json'] } }],
+                    multiple: false
+                });
+            } catch (err) {
+                if (err && err.name === 'AbortError') return;
+                document.getElementById('fileLoad').click();
+                return;
+            }
+            const handle = handles[0];
+            const file = await handle.getFile();
+            await this.loadDiagramFromFile(file);
+            this.fileHandle = handle;
+            return;
+        }
+        document.getElementById('fileLoad').click();
+    },
+
     loadDiagram(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
+        this.fileHandle = null;
+        this.loadDiagramFromFile(file);
+        e.target.value = '';
+    },
+
+    loadDiagramFromFile(file) {
+        return new Promise((resolve) => {
         const sizeKb = Math.round(file.size / 1024);
         this.showLoading('Projekt wird geladen …', 2, `Datei „${file.name}“ (${sizeKb} KB) wird gelesen`);
         const reader = new FileReader();
         reader.onerror = () => {
             this.hideLoading();
             alert('Fehler beim Laden: Datei konnte nicht gelesen werden.');
+            resolve();
         };
         reader.onload = async (event) => {
             try {
-                this.updateLoading('Projekt wird geladen ...', 8, 'Projektdaten werden analysiert');
+                this.updateLoading('Projekt wird geladen …', 8, 'Projektdaten werden analysiert');
                 await this.nextFrame();
                 const data = JSON.parse(event.target.result);
                 if (this.readOnly) this.setReadOnly(false);
@@ -399,9 +477,10 @@ const ExportMixin = {
                 this.hideLoading();
                 alert('Fehler beim Laden: ' + err.message);
             }
+            resolve();
         };
         reader.readAsText(file);
-        e.target.value = '';
+        });
     },
 
     async applyDiagramData(data) {
@@ -414,6 +493,7 @@ const ExportMixin = {
     },
 
     async applyDiagramDataInner(data) {
+        this.fileHandle = null;
         this.devices = [];
         this.connections = [];
         this.devicesLayer.innerHTML = '';
@@ -695,11 +775,23 @@ const ExportMixin = {
             label.className = 'manage-item pdf-sheet-item';
             const count = (sheet.devices || []).length;
             label.innerHTML = `
-                <input type="checkbox" class="pdf-sheet-check" data-index="${idx}" checked>
+                <input type="checkbox" class="pdf-sheet-check" data-type="sheet" data-sheet-index="${idx}" checked>
                 <div class="manage-name">${sheet.name}${idx === this.activeSheet ? ' (aktuell)' : ''}</div>
                 <div class="manage-meta">${count} Gerät${count === 1 ? '' : 'e'}</div>
             `;
             list.appendChild(label);
+
+            (sheet.deviceGroups || []).filter(g => g.collapsed).forEach(group => {
+                const gCount = (group.deviceIds || []).length;
+                const gLabel = document.createElement('label');
+                gLabel.className = 'manage-item pdf-sheet-item pdf-group-item';
+                gLabel.innerHTML = `
+                    <input type="checkbox" class="pdf-sheet-check" data-type="group" data-sheet-index="${idx}" data-group-id="${group.id}" checked>
+                    <div class="manage-name">↳ 📦 ${this.escapeHtml(group.name || '')}</div>
+                    <div class="manage-meta">${gCount} Gerät${gCount === 1 ? '' : 'e'} · Gruppen-Zeichenblatt</div>
+                `;
+                list.appendChild(gLabel);
+            });
         });
         document.getElementById('pdfExportModal').classList.add('active');
     },
@@ -713,22 +805,27 @@ const ExportMixin = {
     },
 
     startPdfExportFromModal() {
-        const indices = Array.from(document.querySelectorAll('#pdfExportSheetList .pdf-sheet-check:checked'))
-            .map(chk => parseInt(chk.dataset.index, 10))
-            .filter(i => !isNaN(i) && i >= 0 && i < this.sheets.length);
-        if (!indices.length) {
+        const items = Array.from(document.querySelectorAll('#pdfExportSheetList .pdf-sheet-check:checked'))
+            .map(chk => {
+                const sheetIndex = parseInt(chk.dataset.sheetIndex, 10);
+                return chk.dataset.type === 'group'
+                    ? { type: 'group', sheetIndex, groupId: chk.dataset.groupId }
+                    : { type: 'sheet', sheetIndex };
+            })
+            .filter(item => !isNaN(item.sheetIndex) && item.sheetIndex >= 0 && item.sheetIndex < this.sheets.length);
+        if (!items.length) {
             alert('Bitte mindestens einen Arbeitsbereich auswählen.');
             return;
         }
         this.hidePdfExportModal();
         if (this.pdfExportMode === 'lists') {
-            this.exportListsPDF(indices, document.getElementById('chkListsSummary').checked);
+            this.exportListsPDF(items, document.getElementById('chkListsSummary').checked);
         } else {
-            this.exportPDF(indices);
+            this.exportPDF(items);
         }
     },
 
-    async exportPDF(sheetIndices) {
+    async exportPDF(items) {
         const { jsPDF } = window.jspdf;
         
         const A1_WIDTH_MM = 841;
@@ -740,39 +837,117 @@ const ExportMixin = {
             format: [A1_HEIGHT_MM, A1_WIDTH_MM]
         });
         
-        const indices = Array.isArray(sheetIndices) && sheetIndices.length ? sheetIndices : [this.activeSheet];
+        const rawItems = Array.isArray(items) && items.length ? items : [{ type: 'sheet', sheetIndex: this.activeSheet }];
         const originalSheet = this.activeSheet;
         const monochrome = this.isMonochromeExport();
         const logoPNG = await this.renderLogoPNG(1200);
-        const multiPage = indices.length > 1;
         
         this.deselectAll();
         this.storeActiveSheet();
+
+        const pages = [];
+        rawItems.forEach(item => {
+            const normalized = typeof item === 'number' ? { type: 'sheet', sheetIndex: item } : item;
+            const sheet = this.sheets[normalized.sheetIndex];
+            if (!sheet) return;
+            if (normalized.type === 'group') {
+                const group = (sheet.deviceGroups || []).find(g => g.id === normalized.groupId);
+                if (!group || !group.collapsed) return;
+                pages.push({ sheetIndex: normalized.sheetIndex, groupId: group.id, name: `${sheet.name} – ${group.name}` });
+            } else {
+                pages.push({ sheetIndex: normalized.sheetIndex, groupId: null, name: sheet.name });
+            }
+        });
+        if (!pages.length) { alert('Bitte mindestens einen Arbeitsbereich auswählen.'); return; }
+        const multiPage = pages.length > 1;
+
+        const drawArea = this.getPlanDrawArea(A1_WIDTH_MM, A1_HEIGHT_MM);
+        let commonFit = Infinity;
+        pages.forEach(page => {
+            const sheet = this.sheets[page.sheetIndex];
+            if (!sheet) return;
+            let devices = sheet.devices || [];
+            let textboxes = sheet.textboxes || [];
+            if (page.groupId) {
+                const group = (sheet.deviceGroups || []).find(g => g.id === page.groupId);
+                const memberIds = new Set(group ? group.deviceIds : []);
+                devices = devices.filter(d => memberIds.has(d.id));
+                textboxes = [];
+            }
+            const diagram = this.getDiagramBoundsFor(devices, textboxes);
+            const pageFit = Math.min(drawArea.availableWidth / diagram.width, drawArea.availableHeight / diagram.height);
+            commonFit = Math.min(commonFit, pageFit);
+        });
+        if (!isFinite(commonFit) || commonFit <= 0) commonFit = null;
+
         try {
-            for (let p = 0; p < indices.length; p++) {
-                const idx = indices[p];
-                if (idx !== this.activeSheet) this.activateSheet(idx);
+            for (let p = 0; p < pages.length; p++) {
+                const page = pages[p];
+                if (page.sheetIndex !== this.activeSheet) this.activateSheet(page.sheetIndex);
+                if (page.groupId) this.enterGroupWorkspace(page.groupId);
                 if (p > 0) pdf.addPage([A1_HEIGHT_MM, A1_WIDTH_MM], 'landscape');
                 await this.drawPlanPage(pdf, {
                     widthMM: A1_WIDTH_MM,
                     heightMM: A1_HEIGHT_MM,
                     logoPNG,
                     monochrome,
-                    sheetName: this.sheets[idx].name,
+                    sheetName: page.name,
                     pageNo: p + 1,
-                    pageCount: indices.length,
-                    multiPage
+                    pageCount: pages.length,
+                    multiPage,
+                    fixedFit: commonFit
                 });
+                if (page.groupId) this.exitGroupWorkspace(false);
             }
         } catch (err) {
             console.error('Diagramm-Rendering fehlgeschlagen:', err);
             alert('Das Diagramm konnte nicht gerendert werden: ' + err.message);
+            if (this.activeGroupWorkspace) this.exitGroupWorkspace(false);
             return;
         } finally {
             if (this.activeSheet !== originalSheet) this.activateSheet(originalSheet);
         }
         
         pdf.save(this.buildFileName('pdf', 'A1'));
+    },
+
+    getPlanDrawArea(widthMM, heightMM) {
+        const MARGIN = 25;
+        const COL_WIDTH = 150;
+        const frameX = MARGIN;
+        const frameY = MARGIN;
+        const frameW = widthMM - 2 * MARGIN;
+        const frameH = heightMM - 2 * MARGIN;
+        const colX = frameX + frameW - COL_WIDTH;
+        const drawX = frameX + 12;
+        const drawY = frameY + 40;
+        return {
+            availableWidth: colX - drawX - 12,
+            availableHeight: frameY + frameH - drawY - 12
+        };
+    },
+
+    getDiagramBoundsFor(devices, textboxes) {
+        let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+        (devices || []).forEach(d => {
+            minX = Math.min(minX, d.x);
+            minY = Math.min(minY, d.y);
+            maxX = Math.max(maxX, d.x + d.width);
+            maxY = Math.max(maxY, d.y + d.height);
+        });
+        (textboxes || []).forEach(t => {
+            const size = this.textboxSize(t);
+            minX = Math.min(minX, t.x);
+            minY = Math.min(minY, t.y);
+            maxX = Math.max(maxX, t.x + size.width);
+            maxY = Math.max(maxY, t.y + size.height);
+        });
+        if (minX === Infinity) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
+        const pad = 40;
+        return {
+            width: Math.max(maxX - minX + 2 * pad, 200),
+            height: Math.max(maxY - minY + 2 * pad, 200)
+        };
     },
 
     async drawPlanPage(pdf, opts) {
@@ -866,7 +1041,8 @@ const ExportMixin = {
         const availableWidth = colX - drawX - 12;
         const availableHeight = frameY + frameH - drawY - 12;
 
-        const fit = Math.min(availableWidth / diagramWidth, availableHeight / diagramHeight);
+        const autoFit = Math.min(availableWidth / diagramWidth, availableHeight / diagramHeight);
+        const fit = opts.fixedFit ? Math.min(opts.fixedFit, autoFit) : autoFit;
         const imgW = diagramWidth * fit;
         const imgH = diagramHeight * fit;
         const imgX = drawX + (availableWidth - imgW) / 2;
@@ -907,17 +1083,32 @@ const ExportMixin = {
         });
     },
 
-    exportListsPDF(sheetIndices, includeSummary = true) {
+    exportListsPDF(items, includeSummary = true) {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         
         this.storeActiveSheet();
-        const indices = Array.isArray(sheetIndices) && sheetIndices.length ? sheetIndices : [this.activeSheet];
-        const sections = indices.map(idx => ({
-            title: this.sheets[idx].name,
-            devices: this.sheets[idx].devices || [],
-            connections: this.sheets[idx].connections || []
-        }));
+        const rawItems = Array.isArray(items) && items.length ? items : [{ type: 'sheet', sheetIndex: this.activeSheet }];
+        const sections = rawItems.map(item => {
+            const normalized = typeof item === 'number' ? { type: 'sheet', sheetIndex: item } : item;
+            const sheet = this.sheets[normalized.sheetIndex];
+            if (!sheet) return null;
+            if (normalized.type === 'group') {
+                const group = (sheet.deviceGroups || []).find(g => g.id === normalized.groupId);
+                if (!group || !group.collapsed) return null;
+                const memberIds = new Set(group.deviceIds || []);
+                return {
+                    title: `${sheet.name} – ${group.name}`,
+                    devices: (sheet.devices || []).filter(d => memberIds.has(d.id)),
+                    connections: (sheet.connections || []).filter(c => memberIds.has(c.fromDevice) && memberIds.has(c.toDevice))
+                };
+            }
+            return {
+                title: sheet.name,
+                devices: sheet.devices || [],
+                connections: sheet.connections || []
+            };
+        }).filter(Boolean);
         const multi = sections.length > 1;
         
         const pageWidth = 210;

@@ -17,7 +17,8 @@ const EventsMixin = {
         document.getElementById('btnUndo').addEventListener('click', () => this.undo());
         document.getElementById('btnRedo').addEventListener('click', () => this.redo());
         document.getElementById('btnSave').addEventListener('click', () => this.saveDiagram());
-        document.getElementById('btnLoad').addEventListener('click', () => document.getElementById('fileLoad').click());
+        document.getElementById('btnSaveAs').addEventListener('click', () => this.saveDiagramAs());
+        document.getElementById('btnLoad').addEventListener('click', () => this.openDiagramFile());
         document.getElementById('fileLoad').addEventListener('change', (e) => this.loadDiagram(e));
         document.getElementById('chkAutosave').addEventListener('change', (e) => {
             this.setAutosave(e.target.checked, document.getElementById('autosaveMinutes').value);

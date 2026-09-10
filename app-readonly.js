@@ -1,7 +1,7 @@
 const ReadOnlyMixin = {
     readOnlyDisabledIds: [
         'projectName', 'projectNumber', 'btnProjectSettings', 'btnUndo', 'btnRedo',
-        'btnSave', 'btnCloudSave', 'btnCloudSaveAs', 'btnCloudShare', 'chkAutosave', 'autosaveMinutes', 'btnRestoreAutosave',
+        'btnSave', 'btnSaveAs', 'btnCloudSave', 'btnCloudSaveAs', 'btnCloudShare', 'chkAutosave', 'autosaveMinutes', 'btnRestoreAutosave',
         'btnExportPDF', 'btnExportLists', 'btnExportDevices',
         'btnImportDevices', 'btnExcelTemplate', 'btnAddDevice', 'btnAddPlaceholder', 'btnAddTextbox',
         'btnManageDevices', 'btnManageGroups', 'btnManageCables',
@@ -10,7 +10,7 @@ const ReadOnlyMixin = {
     ],
 
     readOnlyGuardedMethods: [
-        'saveDiagram', 'runAutosave', 'restoreAutosave',
+        'saveDiagram', 'saveDiagramAs', 'runAutosave', 'restoreAutosave',
         'addDeviceToCanvas', 'addPlaceholderDevice', 'addTextbox', 'pasteDevice',
         'createConnection', 'finishReconnect', 'deleteSelected', 'undo', 'redo',
         'addSheet', 'deleteSheet', 'startSheetRename',

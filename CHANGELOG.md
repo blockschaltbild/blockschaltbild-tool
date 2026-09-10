@@ -3,6 +3,20 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.28.0 – 2026-09-10
+
+- **Direktes Speichern ohne erneute Nachfrage:** Wurde eine Datei bereits einmal lokal gespeichert (oder über „Laden" geöffnet, im Browser unterstützt), überschreibt der „Speichern"-Button (bzw. Strg/Cmd+S) diese Datei jetzt direkt – ohne dass erneut nach Name und Speicherort gefragt wird.
+- **Neu: „Speichern unter ..."** im Menü „Datei" (bzw. Strg/Cmd+Umschalt+S): Sichert das aktuelle Projekt unter einem frei wählbaren Namen/Pfad. Danach überschreibt „Speichern" wieder direkt diese neue Datei, ohne Rückfrage.
+- Hinweis: Diese Direktspeicherung nutzt die File-System-Access-API des Browsers (aktuell u. a. Chrome/Edge). In Browsern ohne Unterstützung (z. B. Firefox, Safari) funktioniert „Speichern" weiterhin über den klassischen Download-Dialog des Browsers.
+
+## Version 1.27.1 – 2026-09-10
+
+- Fehlerbehebung: Beim PDF-Export mit mehreren Seiten (Arbeitsbereiche und/oder Gruppen-Zeichenblätter) wurde jede Seite unabhängig auf den verfügbaren Platz im A1-Rahmen skaliert. Dadurch wirkten Geräte auf Seiten mit wenig Inhalt (z. B. einer kleinen Gruppe) deutlich größer als auf dem Hauptblatt. Der PDF-Export verwendet jetzt für alle Seiten eines Exportvorgangs einen einheitlichen Maßstab, sodass Geräte auf jeder Seite gleich groß dargestellt werden.
+
+## Version 1.27.0 – 2026-09-10
+
+- **Gruppen-Zeichenblätter im PDF- und Listen-Export:** Im Dialog „Plan als PDF exportieren" (A1) sowie „Listen als PDF exportieren" werden zusammengeklappte Gruppen jetzt zusätzlich unter dem jeweiligen Arbeitsbereich aufgeführt und können einzeln an-/abgewählt werden. Ausgewählte Gruppen werden als eigene Seite (Gruppen-Zeichenblatt bzw. eigene Geräte-/Kabelliste) in das PDF aufgenommen.
+
 ## Version 1.26.0 – 2026-09-10
 
 - **Marquee-Auswahl (Aufziehrechteck):** Bei gedrückter linker Maustaste auf einer leeren Stelle der Zeichenfläche lässt sich jetzt ein Auswahlrechteck aufziehen; alle darin liegenden Geräte werden automatisch markiert. Mit gedrückter Umschalttaste wird zur bestehenden Auswahl hinzugefügt.
