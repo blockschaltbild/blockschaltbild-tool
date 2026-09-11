@@ -194,6 +194,7 @@ const EventsMixin = {
         this.svg.addEventListener('mousemove', (e) => this.onMouseMove(e));
         this.svg.addEventListener('mouseup', (e) => this.onMouseUp(e));
         this.svg.addEventListener('click', (e) => this.onClick(e));
+        this.svg.addEventListener('dblclick', (e) => this.onDoubleClick(e));
         
         this.svg.addEventListener('contextmenu', (e) => {
             const groupBlock = e.target.closest('.group-collapsed-block');
@@ -221,11 +222,26 @@ const EventsMixin = {
             if (!e.target.closest('#deviceContextMenu')) this.hideDeviceContextMenu();
         });
         window.addEventListener('resize', () => this.hideDeviceContextMenu());
-        document.querySelector('.canvas-wrapper')?.addEventListener('scroll', () => this.hideDeviceContextMenu());
+        const canvasWrapperEl = document.querySelector('.canvas-wrapper');
+        canvasWrapperEl?.addEventListener('scroll', () => this.hideDeviceContextMenu());
+        canvasWrapperEl?.addEventListener('wheel', (e) => this.onWheelZoom(e), { passive: false });
+        canvasWrapperEl?.addEventListener('touchstart', (e) => this.onTouchStartZoom(e), { passive: false });
+        canvasWrapperEl?.addEventListener('touchmove', (e) => this.onTouchMoveZoom(e), { passive: false });
+        canvasWrapperEl?.addEventListener('touchend', (e) => this.onTouchEndZoom(e));
+        canvasWrapperEl?.addEventListener('touchcancel', (e) => this.onTouchEndZoom(e));
         
         document.addEventListener('keydown', (e) => {
             const tag = (e.target.tagName || '').toLowerCase();
             const inField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+            if (!inField && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.toLowerCase() === 'x' || e.code === 'KeyX')) {
+                e.preventDefault();
+                this.togglePanMode();
+                return;
+            }
+            if (!inField && (e.code === 'Space' || e.key === ' ')) {
+                e.preventDefault();
+                return;
+            }
             if (!inField && this.handleShortcutKey(e)) return;
             if (!inField && (e.key === 'Delete' || e.key === 'Backspace') && (this.selectedElement || (this.selectedDevices && this.selectedDevices.length))) {
                 e.preventDefault();
@@ -248,7 +264,12 @@ const EventsMixin = {
                 this.hidePdfExportModal();
                 this.hideAutoConnectModal();
                 this.hideMissingLengthsModal();
+                if (this.panModeActive) this.setPanMode(false);
             }
+        });
+        
+        window.addEventListener('blur', () => {
+            this.setPanMode(false);
         });
         
         document.getElementById('btnShowShortcuts').addEventListener('click', () => this.showShortcutsModal());

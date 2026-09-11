@@ -78,9 +78,14 @@ const CanvasMixin = {
         const group = this.findGroupForDevice ? this.findGroupForDevice(device.id) : null;
         if (group && group.collapsed) return;
         
+        let editClass = '';
+        if (this.editingGroupId) {
+            editClass = (group && group.id === this.editingGroupId) ? ' group-edit-member' : ' group-edit-dimmed';
+        }
+        
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('id', device.id);
-        g.setAttribute('class', 'device-block' + (device.placeholder ? ' placeholder' : ''));
+        g.setAttribute('class', 'device-block' + (device.placeholder ? ' placeholder' : '') + editClass);
         g.setAttribute('transform', `translate(${device.x}, ${device.y})`);
         g.dataset.deviceId = device.id;
         
@@ -191,11 +196,45 @@ const CanvasMixin = {
         this.devicesLayer.appendChild(g);
     },
 
+    togglePanMode() {
+        this.setPanMode(!this.panModeActive);
+    },
+
+    setPanMode(active) {
+        this.panModeActive = active;
+        const wrapper = document.getElementById('canvasWrapper');
+        if (!wrapper) return;
+        wrapper.classList.toggle('pan-mode', active);
+        if (!active) {
+            this.isPanning = false;
+            this.panStart = null;
+            wrapper.classList.remove('panning');
+        }
+    },
+
     onMouseDown(e) {
+        if (e.button === 0 && this.panModeActive) {
+            e.preventDefault();
+            const wrapper = document.getElementById('canvasWrapper');
+            this.isPanning = true;
+            this.panStart = { x: e.clientX, y: e.clientY, scrollLeft: wrapper.scrollLeft, scrollTop: wrapper.scrollTop };
+            wrapper.classList.add('panning');
+            return;
+        }
         if (this.readOnly) { this.readOnlyMouseDown(e); return; }
         const target = e.target;
         const deviceBlock = target.closest('.device-block');
         const port = target.closest('.port');
+        
+        if (this.editingGroupId) {
+            const editingGroup = this.deviceGroups.find(g => g.id === this.editingGroupId);
+            const isMember = !!(editingGroup && deviceBlock && editingGroup.deviceIds.includes(deviceBlock.dataset.deviceId));
+            const labelEl = target.closest('.group-label');
+            const onGroupLabel = !!(labelEl && labelEl.dataset.groupId === this.editingGroupId);
+            if (!isMember && !onGroupLabel) {
+                this.exitGroupEditMode();
+            }
+        }
         
         const groupBlock = target.closest('.group-collapsed-block');
         if (groupBlock && e.button !== 2) {
@@ -314,7 +353,7 @@ const CanvasMixin = {
                     this.groupDragStart = null;
                 } else {
                     this.multiDragStart = null;
-                    const group = this.findGroupForDevice(device.id);
+                    const group = this.editingGroupId ? null : this.findGroupForDevice(device.id);
                     this.draggedGroup = group;
                     this.groupDragStart = null;
                     if (group) {
@@ -346,6 +385,12 @@ const CanvasMixin = {
     },
 
     onMouseMove(e) {
+        if (this.isPanning) {
+            const wrapper = document.getElementById('canvasWrapper');
+            wrapper.scrollLeft = this.panStart.scrollLeft - (e.clientX - this.panStart.x);
+            wrapper.scrollTop = this.panStart.scrollTop - (e.clientY - this.panStart.y);
+            return;
+        }
         const rect = this.svg.getBoundingClientRect();
         const x = (e.clientX - rect.left) / this.zoom;
         const y = (e.clientY - rect.top) / this.zoom;
@@ -357,25 +402,26 @@ const CanvasMixin = {
         
         if (this.draggedGroupBlock && this.groupDragStart) {
             this.beginDragHistory();
-            const newX = Math.max(0, this.snap(x - this.groupBlockDragOffset.x));
-            const newY = Math.max(0, this.snap(y - this.groupBlockDragOffset.y));
+            const newX = this.snap(x - this.groupBlockDragOffset.x);
+            const newY = this.snap(y - this.groupBlockDragOffset.y);
             const dx = newX - this.groupBlockStartBounds.minX;
             const dy = newY - this.groupBlockStartBounds.minY;
             this.draggedGroupBlock.deviceIds.forEach(id => {
                 const d = this.devices.find(dev => dev.id === id);
                 const s = this.groupDragStart[id];
                 if (!d || !s) return;
-                d.x = Math.max(0, s.x + dx);
-                d.y = Math.max(0, s.y + dy);
+                d.x = s.x + dx;
+                d.y = s.y + dy;
             });
             this.renderGroupOutlines();
+            this.updateCanvasSize();
             return;
         }
         
         if (this.draggedDevice) {
             this.beginDragHistory();
-            const newX = Math.max(0, this.snap(x - this.dragOffset.x));
-            const newY = Math.max(0, this.snap(y - this.dragOffset.y));
+            const newX = this.snap(x - this.dragOffset.x);
+            const newY = this.snap(y - this.dragOffset.y);
             if (this.multiDragStart) {
                 const start = this.multiDragStart[this.draggedDevice.id];
                 const dx = newX - start.x;
@@ -384,8 +430,8 @@ const CanvasMixin = {
                     const d = this.devices.find(dev => dev.id === id);
                     const s = this.multiDragStart[id];
                     if (!d || !s) return;
-                    d.x = Math.max(0, s.x + dx);
-                    d.y = Math.max(0, s.y + dy);
+                    d.x = s.x + dx;
+                    d.y = s.y + dy;
                     this.renderDevice(d);
                 });
                 this.renderGroupOutlines();
@@ -397,8 +443,8 @@ const CanvasMixin = {
                     const d = this.devices.find(dev => dev.id === id);
                     const s = this.groupDragStart[id];
                     if (!d || !s) return;
-                    d.x = Math.max(0, s.x + dx);
-                    d.y = Math.max(0, s.y + dy);
+                    d.x = s.x + dx;
+                    d.y = s.y + dy;
                     this.renderDevice(d);
                 });
                 this.renderGroupOutlines();
@@ -406,14 +452,15 @@ const CanvasMixin = {
                 this.draggedDevice.x = newX;
                 this.draggedDevice.y = newY;
                 this.renderDevice(this.draggedDevice);
+                if (this.editingGroupId) this.renderGroupOutlines();
             }
             this.updateConnections();
         }
         
         if (this.draggedTextbox) {
             this.beginDragHistory();
-            this.draggedTextbox.x = Math.max(0, this.snap(x - this.dragOffset.x));
-            this.draggedTextbox.y = Math.max(0, this.snap(y - this.dragOffset.y));
+            this.draggedTextbox.x = this.snap(x - this.dragOffset.x);
+            this.draggedTextbox.y = this.snap(y - this.dragOffset.y);
             this.renderTextbox(this.draggedTextbox);
             document.getElementById(this.draggedTextbox.id).classList.add('selected');
         }
@@ -424,10 +471,11 @@ const CanvasMixin = {
             if (!conn.waypoints) conn.waypoints = [];
             const pad = this.canvasPadding;
             conn.waypoints[this.bendDrag.index] = {
-                x: Math.min(this.canvasWidth - pad, Math.max(pad, this.snap(x))),
-                y: Math.min(this.canvasHeight - pad, Math.max(pad, this.snap(y)))
+                x: Math.max(pad, this.snap(x)),
+                y: Math.max(pad, this.snap(y))
             };
             this.updateConnections();
+            this.updateCanvasSize();
             return;
         }
         
@@ -458,6 +506,10 @@ const CanvasMixin = {
             path.setAttribute('class', 'connection-preview');
             this.previewLayer.appendChild(path);
         }
+        
+        if (this.draggedDevice || this.draggedTextbox || this.draggedGroupBlock || this.bendDrag) {
+            this.updateCanvasSize();
+        }
     },
 
     updateMarquee(x, y) {
@@ -487,6 +539,13 @@ const CanvasMixin = {
     },
 
     onMouseUp(e) {
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.panStart = null;
+            const wrapper = document.getElementById('canvasWrapper');
+            if (wrapper) wrapper.classList.remove('panning');
+            return;
+        }
         if (this.readOnly) return;
         
         if (this.marqueeStart) {
@@ -566,24 +625,102 @@ const CanvasMixin = {
         }
     },
 
-    setZoom(level) {
-        this.zoom = Math.max(0.25, Math.min(2, level));
+    onDoubleClick(e) {
+        if (this.readOnly) return;
+        const deviceBlock = e.target.closest('.device-block');
+        if (!deviceBlock) return;
+        const group = this.findGroupForDevice(deviceBlock.dataset.deviceId);
+        if (group && !group.collapsed) {
+            e.preventDefault();
+            this.enterGroupEditMode(group.id);
+        }
+    },
+
+    setZoom(level, minZoom) {
+        this.zoom = Math.max(minZoom || 0.25, Math.min(2, level));
         document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
         this.svg.style.transform = `scale(${this.zoom})`;
         this.svg.style.transformOrigin = 'top left';
     },
 
+    zoomAtPoint(newLevel, clientX, clientY) {
+        const wrapper = document.getElementById('canvasWrapper');
+        if (!wrapper) { this.setZoom(newLevel); return; }
+        const rect = wrapper.getBoundingClientRect();
+        const offsetX = clientX - rect.left;
+        const offsetY = clientY - rect.top;
+        const worldX = wrapper.scrollLeft + offsetX;
+        const worldY = wrapper.scrollTop + offsetY;
+        const oldZoom = this.zoom;
+        this.setZoom(newLevel);
+        const ratio = this.zoom / oldZoom;
+        wrapper.scrollLeft = worldX * ratio - offsetX;
+        wrapper.scrollTop = worldY * ratio - offsetY;
+    },
+
+    onWheelZoom(e) {
+        e.preventDefault();
+        if (!e.deltaY) return;
+        const factor = Math.exp(-e.deltaY * 0.0015);
+        const newLevel = Math.max(0.25, Math.min(2, this.zoom * factor));
+        this.zoomAtPoint(newLevel, e.clientX, e.clientY);
+    },
+
+    touchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.hypot(dx, dy);
+    },
+
+    touchCenter(touches) {
+        return {
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2
+        };
+    },
+
+    onTouchStartZoom(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            this.pinchStartDist = this.touchDistance(e.touches);
+            this.pinchStartZoom = this.zoom;
+        }
+    },
+
+    onTouchMoveZoom(e) {
+        if (e.touches.length === 2 && this.pinchStartDist) {
+            e.preventDefault();
+            const dist = this.touchDistance(e.touches);
+            if (!dist) return;
+            const ratio = dist / this.pinchStartDist;
+            const newLevel = Math.max(0.25, Math.min(2, this.pinchStartZoom * ratio));
+            const center = this.touchCenter(e.touches);
+            this.zoomAtPoint(newLevel, center.x, center.y);
+        }
+    },
+
+    onTouchEndZoom(e) {
+        if (e.touches.length < 2) this.pinchStartDist = null;
+    },
+
     fitView() {
+        const container = document.querySelector('.canvas-wrapper');
         if (this.devices.length === 0) {
             this.setZoom(1);
+            if (container) { container.scrollLeft = 0; container.scrollTop = 0; }
             return;
         }
-        
+
         const bounds = this.getBounds();
-        const container = document.querySelector('.canvas-wrapper');
-        const scaleX = container.clientWidth / (bounds.maxX + 50);
-        const scaleY = container.clientHeight / (bounds.maxY + 50);
-        this.setZoom(Math.min(scaleX, scaleY, 1));
+        const margin = 40;
+        const contentWidth = Math.max(1, bounds.maxX - bounds.minX);
+        const contentHeight = Math.max(1, bounds.maxY - bounds.minY);
+        const scaleX = (container.clientWidth - margin) / contentWidth;
+        const scaleY = (container.clientHeight - margin) / contentHeight;
+        this.setZoom(Math.min(scaleX, scaleY, 1), 0.05);
+
+        container.scrollLeft = Math.max(0, bounds.minX * this.zoom - margin / 2);
+        container.scrollTop = Math.max(0, bounds.minY * this.zoom - margin / 2);
     },
 
     getBounds() {

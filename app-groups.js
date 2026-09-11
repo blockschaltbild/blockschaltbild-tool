@@ -146,6 +146,7 @@ const GroupsMixin = {
     ungroupGroupById(groupId) {
         if (this.readOnly) { this.notifyReadOnly(); return; }
         if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
+        if (this.editingGroupId === groupId) this.exitGroupEditMode();
         this.recordHistory();
         const group = this.deviceGroups.find(g => g.id === groupId);
         this.deviceGroups = this.deviceGroups.filter(g => g.id !== groupId);
@@ -159,10 +160,31 @@ const GroupsMixin = {
         this.renderGroupOutlines();
     },
 
+    enterGroupEditMode(groupId) {
+        if (this.readOnly) { this.notifyReadOnly(); return; }
+        if (this.activeGroupWorkspace) return;
+        const group = this.deviceGroups.find(g => g.id === groupId);
+        if (!group || group.collapsed) return;
+        if (this.editingGroupId === groupId) return;
+        this.editingGroupId = groupId;
+        this.clearMultiSelect();
+        this.deselectAll();
+        this.devices.forEach(d => this.renderDevice(d));
+        this.renderGroupOutlines();
+    },
+
+    exitGroupEditMode() {
+        if (!this.editingGroupId) return;
+        this.editingGroupId = null;
+        this.devices.forEach(d => this.renderDevice(d));
+        this.renderGroupOutlines();
+    },
+
     toggleGroupCollapsed(groupId) {
         if (this.readOnly) { this.notifyReadOnly(); return; }
         const group = this.deviceGroups.find(g => g.id === groupId);
         if (!group) return;
+        if (this.editingGroupId === groupId) this.exitGroupEditMode();
         if (this.activeGroupWorkspace) {
             if (this.activeGroupWorkspace.groupId === groupId) {
                 this.exitGroupWorkspace(true);
@@ -546,6 +568,7 @@ const GroupsMixin = {
 
     renderGroupOutlines() {
         if (!this.groupsLayer) return;
+        if (this.svg) this.svg.classList.toggle('group-edit-active', !!this.editingGroupId);
         this.groupsLayer.innerHTML = '';
         const pad = 14;
         this.deviceGroups.forEach(group => {
@@ -564,7 +587,7 @@ const GroupsMixin = {
             rect.setAttribute('y', y);
             rect.setAttribute('width', width);
             rect.setAttribute('height', (bounds.maxY - bounds.minY) + pad * 2);
-            rect.setAttribute('class', 'group-outline');
+            rect.setAttribute('class', 'group-outline' + (this.editingGroupId === group.id ? ' group-outline-editing' : ''));
             rect.setAttribute('data-group-id', group.id);
             rect.setAttribute('rx', '10');
             rect.setAttribute('pointer-events', 'none');

@@ -3,6 +3,43 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.39.0 – 2026-09-11
+
+- Fehlerbehebung: Die Funktion „Anpassen" (An Fenster anpassen) zeigte bei großen Zeichenblättern mit weit auseinanderliegenden Geräten teils einen leeren Ausschnitt oder zoomte falsch, weil die Bildlaufposition nicht zurückgesetzt und der linke/obere Rand des Inhalts nicht berücksichtigt wurde. Die Ansicht scrollt jetzt korrekt zum Inhalt und kann bei Bedarf auch weiter als bisher herauszoomen, damit wirklich das gesamte Zeichenblatt sichtbar ist.
+
+## Version 1.38.0 – 2026-09-11
+
+- Ergänzt: Die Taste X (Verschiebe-Modus) ist jetzt in der Tastenkürzel-Übersicht (⌘+/) unter „Ansicht" gelistet.
+
+## Version 1.37.0 – 2026-09-11
+
+- Fehlerbehebung: Die Leertaste löst jetzt keine Aktion mehr aus (vorher scrollte der Browser damit über das Zeichenblatt und sprang so in die Mitte).
+- Fehlerbehebung: Der Mauszeiger wird beim aktivierten Verschiebe-Modus (Taste X) jetzt zuverlässig zur Hand, auch über Geräten, Verbindungen und dem Zeichenblatt selbst.
+
+## Version 1.36.0 – 2026-09-11
+
+- Geändert: Das Verschieben (Pan) des Zeichenblatts erfolgt jetzt nicht mehr über gedrückte Leertaste (das funktionierte nicht zuverlässig), sondern über die Taste **X**: Einmal drücken aktiviert den Verschiebe-Modus (Mauszeiger wird zur Hand) – jedes Ziehen mit der linken Maustaste verschiebt danach das Blatt. Erneutes Drücken von X deaktiviert den Modus wieder, danach kann normal markiert werden. Die Taste X löst nicht aus, während in einem Eingabefeld (Name, Suchfeld usw.) getippt wird.
+
+## Version 1.35.0 – 2026-09-11
+
+## Version 1.34.0 – 2026-09-11
+
+- Neu: Zoomen per Mausrad und per Touch-Pinch-Geste (Zwei-Finger-Zoom) auf dem Zeichenblatt – funktioniert wie die vorhandenen +/- Zoom-Buttons und zoomt zentriert auf die Cursor- bzw. Finger-Position. Der Browser selbst wird dabei nicht mehr gezoomt oder gescrollt, da das Standardverhalten für diese Eingaben auf dem Zeichenblatt unterdrückt wird.
+
+## Version 1.33.0 – 2026-09-11
+
+- Fehlerbehebung: Das Zeichenblatt wuchs bisher nur nach rechts/unten und nur, wenn Geräte sehr weit (800px-Puffer) über den Rand hinaus verschoben wurden. Ziehen an den linken/oberen Rand oder das Verschieben eingeklappter Gruppen bzw. von Verbindungs-Knickpunkten ließ das Blatt gar nicht wachsen.
+- Neu: Das Zeichenblatt passt sich jetzt dynamisch nach allen vier Seiten an und hält dabei stets exakt 20 Pixel Abstand zu den äußersten Geräten/Gruppen. Wird ein Gerät oder eine Gruppe an den linken oder oberen Rand gezogen, rückt die gesamte Zeichnung automatisch nach, ohne dass sich die sichtbare Ansicht verschiebt.
+
+## Version 1.32.0 – 2026-09-11
+
+- Neu: Eine ausgeklappte (nicht eingeklappte) Gerätegruppe lässt sich jetzt per Doppelklick auf ein Gerät der Gruppe in einen Bearbeitungsmodus versetzen. In diesem Modus sind nur die Geräte der Gruppe verschiebbar/neu anordbar, alle anderen Geräte sind gesperrt (optisch abgedunkelt) und ein Klick auf sie beendet den Bearbeitungsmodus, statt sie zu verschieben. Neue Geräte können während des Bearbeitungsmodus per Drag&Drop aus der Bibliothek in den Bereich der Gruppe gezogen werden und werden dann automatisch Teil der Gruppe. Ein Klick außerhalb der Gruppe (z. B. auf die leere Zeichenfläche oder ein anderes Gerät) beendet die Bearbeitung, danach kann normal weitergearbeitet werden.
+
+## Version 1.31.0 – 2026-09-11
+
+- Fehlerbehebung: Enthielt der Gerätename ein Anführungszeichen (`"`), wurde im Eigenschaften-Panel nur der Text bis zu diesem Zeichen im Feld „Name" angezeigt (das Gerät selbst zeigte den vollständigen Namen korrekt an). Betroffen waren auch die Felder „Artikelnummer", „Typ" und „Gruppe".
+- Neu: Das Zeichenblatt ist jetzt dynamisch und wächst automatisch mit, sobald Geräte, Textfelder oder Verbindungspunkte an den Rand oder darüber hinaus verschoben werden. Bisher war die Zeichenfläche auf eine feste Größe begrenzt, wodurch große Zeichnungen nicht platziert werden konnten.
+
 ## Version 1.30.0 – 2026-09-10
 
 - Menü „Geräte" umbenannt in „Einfügen" und neu sortiert: zuerst „neues Gerät", „neuer Platzhalter", „neuer Text", dann ein Trennstrich, danach „Gerät importieren" (vormals „Geräte importieren"), „Geräte verwalten", „Kabel verwalten".

@@ -42,11 +42,11 @@ const ModalsMixin = {
         const group = this.groups.find(g => g.id === device.group) || { name: 'Sonstiges' };
         const panel = document.getElementById('propertiesPanel');
         panel.innerHTML = `
-            <label>Name: <input type="text" id="propName" value="${device.name}"></label>
-            <label>Artikelnummer: <input type="text" id="propArticle" value="${device.article || ''}"></label>
-            <label>Typ: <input type="text" id="propType" value="${device.type || ''}"></label>
-            <label>Gruppe: <select id="propGroup">${this.groups.map(g => `<option value="${g.id}" ${g.id === device.group ? 'selected' : ''}>${g.name}</option>`).join('')}</select></label>
-            <label>Farbe: <input type="color" id="propColor" value="${device.color}"></label>
+            <label>Name: <input type="text" id="propName" value="${this.escapeHtml(device.name)}"></label>
+            <label>Artikelnummer: <input type="text" id="propArticle" value="${this.escapeHtml(device.article || '')}"></label>
+            <label>Typ: <input type="text" id="propType" value="${this.escapeHtml(device.type || '')}"></label>
+            <label>Gruppe: <select id="propGroup">${this.groups.map(g => `<option value="${this.escapeHtml(g.id)}" ${g.id === device.group ? 'selected' : ''}>${this.escapeHtml(g.name)}</option>`).join('')}</select></label>
+            <label>Farbe: <input type="color" id="propColor" value="${this.escapeHtml(device.color)}"></label>
             <label class="checkbox-row" title="Platzhalter bleiben nur in diesem Projekt und werden nicht in der Bibliothek gespeichert"><input type="checkbox" id="propPlaceholder" ${device.placeholder ? 'checked' : ''}> Platzhalter (nicht in Bibliothek)</label>
             <button id="btnDeleteDevice" class="btn-danger">Löschen</button>
         `;

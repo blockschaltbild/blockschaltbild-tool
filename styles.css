@@ -1255,6 +1255,17 @@ input[type="checkbox"] {
     flex: 1;
     overflow: auto;
     background: #ffffff;
+    touch-action: pan-x pan-y;
+}
+
+.canvas-wrapper.pan-mode,
+.canvas-wrapper.pan-mode * {
+    cursor: grab !important;
+}
+
+.canvas-wrapper.pan-mode.panning,
+.canvas-wrapper.pan-mode.panning * {
+    cursor: grabbing !important;
 }
 
 .diagram-canvas {
@@ -1306,6 +1317,21 @@ input[type="checkbox"] {
     font-size: 12px;
     font-weight: 600;
     user-select: none;
+}
+
+.group-outline-editing {
+    fill: rgba(62, 13, 129, 0.1);
+    stroke-width: 2.5;
+    stroke-dasharray: none;
+}
+
+.diagram-canvas.group-edit-active .device-block.group-edit-dimmed {
+    opacity: 0.4;
+}
+
+.diagram-canvas.group-edit-active .device-block.group-edit-member rect.body {
+    stroke: var(--ict-violet);
+    stroke-width: 2.5;
 }
 
 .group-collapsed-block {

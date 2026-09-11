@@ -35,6 +35,7 @@ const ShortcutsMixin = {
                 { label: 'Verbindungen mit 90° Ecken darstellen', combos: [{ mod: true, shift: true, keys: ['e'] }], run: () => this.setLineStyleFromShortcut('orthogonal') }
             ]},
             { section: 'Ansicht', items: [
+                { label: 'Verschiebe-Modus an/aus (danach mit gedrückter Maustaste ziehen)', combos: [{ keys: ['x'] }], info: true },
                 { label: 'Vergrößern', combos: [{ mod: true, shift: null, keys: ['+', '='], codes: ['NumpadAdd'] }], buttonId: 'btnZoomIn', run: () => this.setZoom(this.zoom + 0.1) },
                 { label: 'Verkleinern', combos: [{ mod: true, shift: null, keys: ['-'], codes: ['NumpadSubtract'] }], buttonId: 'btnZoomOut', run: () => this.setZoom(this.zoom - 0.1) },
                 { label: 'Zoom zurücksetzen (100 %)', combos: [{ mod: true, keys: ['0'], codes: ['Numpad0'] }], run: () => this.setZoom(1) },
@@ -153,6 +154,7 @@ const ShortcutsMixin = {
             newDevices.push(device);
         });
         newDevices.forEach(d => this.renderDevice(d));
+        this.updateCanvasSize();
 
         clip.connections.forEach(c => {
             const fromId = idMap[c.fromDevice];

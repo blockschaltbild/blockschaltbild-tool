@@ -411,7 +411,21 @@ const LibraryMixin = {
         };
         
         this.devices.push(device);
+        if (this.editingGroupId) {
+            const group = this.deviceGroups.find(g => g.id === this.editingGroupId);
+            if (group) {
+                const bounds = this.getGroupBounds(group);
+                const margin = 100;
+                const overlaps = !bounds || (
+                    x < bounds.maxX + margin && x + device.width > bounds.minX - margin &&
+                    y < bounds.maxY + margin && y + device.height > bounds.minY - margin
+                );
+                if (overlaps) group.deviceIds.push(device.id);
+            }
+        }
         this.renderDevice(device);
+        this.updateCanvasSize();
+        this.renderGroupOutlines();
         return device;
     },
 

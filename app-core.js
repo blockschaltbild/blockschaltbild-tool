@@ -24,6 +24,7 @@ class BlockDiagramEditor {
         this.groupBlockDragOffset = null;
         this.selectedGroupId = null;
         this.activeGroupWorkspace = null;
+        this.editingGroupId = null;
         this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes, deviceGroups: this.deviceGroups }];
         this.activeSheet = 0;
         this.nextSheetId = 2;
@@ -39,8 +40,10 @@ class BlockDiagramEditor {
         
         this.lineStyle = 'curve';
         this.exitStub = 30;
-        this.canvasWidth = 3000;
-        this.canvasHeight = 2000;
+        this.canvasMinWidth = 3000;
+        this.canvasMinHeight = 2000;
+        this.canvasWidth = this.canvasMinWidth;
+        this.canvasHeight = this.canvasMinHeight;
         this.canvasPadding = 20;
         this.gridSize = 20;
         this.gridVisible = true;
@@ -346,6 +349,7 @@ class BlockDiagramEditor {
 
     prepareSheet(idx) {
         this.activeSheet = idx;
+        this.editingGroupId = null;
         const sheet = this.sheets[idx];
         this.devices = sheet.devices;
         this.connections = sheet.connections;
@@ -392,6 +396,7 @@ class BlockDiagramEditor {
         this.renderGroupOutlines();
         done++;
         this.renderSheetTabs();
+        this.updateCanvasSize();
         if (onProgress) onProgress(done, total, 'Fertig');
     }
 
@@ -405,6 +410,7 @@ class BlockDiagramEditor {
         this.drawCrossingBridges();
         this.renderGroupOutlines();
         this.renderSheetTabs();
+        this.updateCanvasSize();
     }
 
 
@@ -544,6 +550,88 @@ class BlockDiagramEditor {
         document.getElementById('propertiesPanel').innerHTML = '<p class="hint">Wählen Sie ein Element aus</p>';
     }
 
+
+    applyCanvasShift(dx, dy) {
+        if (!dx && !dy) return;
+        this.devices.forEach(d => { d.x += dx; d.y += dy; });
+        this.textboxes.forEach(t => { t.x += dx; t.y += dy; });
+        this.connections.forEach(c => {
+            (c.waypoints || []).forEach(w => { if (w) { w.x += dx; w.y += dy; } });
+        });
+        if (this.dragOffset) { this.dragOffset.x -= dx; this.dragOffset.y -= dy; }
+        if (this.multiDragStart) {
+            Object.values(this.multiDragStart).forEach(s => { s.x += dx; s.y += dy; });
+        }
+        if (this.groupDragStart) {
+            Object.values(this.groupDragStart).forEach(s => { s.x += dx; s.y += dy; });
+        }
+        if (this.groupBlockDragOffset) { this.groupBlockDragOffset.x -= dx; this.groupBlockDragOffset.y -= dy; }
+        if (this.groupBlockStartBounds) { this.groupBlockStartBounds.minX += dx; this.groupBlockStartBounds.minY += dy; }
+        const wrapper = document.getElementById('canvasWrapper');
+        if (wrapper) { wrapper.scrollLeft += dx * this.zoom; wrapper.scrollTop += dy * this.zoom; }
+    }
+
+    updateCanvasSize() {
+        const margin = 20;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        const consider = (x, y) => {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        };
+        this.devices.forEach(d => {
+            consider(d.x, d.y);
+            consider(d.x + (d.width || 0), d.y + (d.height || 0));
+        });
+        this.textboxes.forEach(t => {
+            const size = this.textboxSize ? this.textboxSize(t) : { width: t.width || 200, height: t.height || 80 };
+            consider(t.x, t.y);
+            consider(t.x + size.width, t.y + size.height);
+        });
+        this.connections.forEach(c => {
+            (c.waypoints || []).forEach(w => { if (w) consider(w.x, w.y); });
+        });
+        this.deviceGroups.forEach(g => {
+            const b = this.getGroupBounds(g);
+            if (b) { consider(b.minX - 14, b.minY - 14); consider(b.maxX + 14, b.maxY + 14); }
+        });
+        if (minX === Infinity) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
+
+        const dx = minX < margin ? margin - minX : 0;
+        const dy = minY < margin ? margin - minY : 0;
+        if (dx || dy) {
+            this.applyCanvasShift(dx, dy);
+            minX += dx; maxX += dx;
+            minY += dy; maxY += dy;
+            this.devices.forEach(d => this.renderDevice(d));
+            this.textboxes.forEach(t => this.renderTextbox(t));
+            this.updateConnections();
+            this.renderGroupOutlines();
+            if (this.draggedDevice) {
+                const el = document.getElementById(this.draggedDevice.id);
+                if (el) el.classList.add('selected');
+            }
+            if (this.draggedTextbox) {
+                const el = document.getElementById(this.draggedTextbox.id);
+                if (el) el.classList.add('selected');
+            }
+            if (this.selectedDevices && this.selectedDevices.length) this.renderMultiSelectHighlight();
+        }
+
+        const newWidth = Math.max(this.canvasMinWidth || 0, Math.ceil((maxX + margin) / this.gridSize) * this.gridSize);
+        const newHeight = Math.max(this.canvasMinHeight || 0, Math.ceil((maxY + margin) / this.gridSize) * this.gridSize);
+        if (newWidth !== this.canvasWidth || newHeight !== this.canvasHeight) {
+            this.canvasWidth = newWidth;
+            this.canvasHeight = newHeight;
+            this.svg.setAttribute('width', this.canvasWidth);
+            this.svg.setAttribute('height', this.canvasHeight);
+            if (this.gridRect) {
+                this.gridRect.setAttribute('width', this.canvasWidth);
+                this.gridRect.setAttribute('height', this.canvasHeight);
+            }
+        }
+    }
 
     escapeHtml(value) {
         return String(value).replace(/[&<>"']/g, ch => ({
