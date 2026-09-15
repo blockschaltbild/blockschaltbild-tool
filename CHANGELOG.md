@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.39.1 – 2026-09-12
+
+- Fehlerbehebung: Im Dialog „Aus Cloud laden" konnten Admin-Konten fremde Projekte anderer Nutzer sehen, die gar nicht mit ihnen geteilt wurden – die Datenbankregel für die Admin-Verwaltung erlaubt Admins den Lesezugriff auf alle Projekte, wodurch diese im normalen Lade-Dialog fälschlich als „Nur lesen · Freigegeben von: unbekannt" erschienen. Der Dialog zeigt jetzt nur noch eigene und tatsächlich mit einem geteilte Projekte an.
+
 ## Version 1.39.0 – 2026-09-11
 
 - Fehlerbehebung: Die Funktion „Anpassen" (An Fenster anpassen) zeigte bei großen Zeichenblättern mit weit auseinanderliegenden Geräten teils einen leeren Ausschnitt oder zoomte falsch, weil die Bildlaufposition nicht zurückgesetzt und der linke/obere Rand des Inhalts nicht berücksichtigt wurde. Die Ansicht scrollt jetzt korrekt zum Inhalt und kann bei Bedarf auch weiter als bisher herauszoomen, damit wirklich das gesamte Zeichenblatt sichtbar ist.

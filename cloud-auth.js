@@ -696,7 +696,6 @@
             client.from('project_shares').select('project_id,email,permission,owner_email')
         ]);
         if (error) { list.innerHTML = `<p class="hint">Fehler: ${escapeHtml(dbErr(error)).replace(/\n/g, '<br>')}</p>`; return; }
-        if (!data || !data.length) { list.innerHTML = '<p class="hint">Noch keine Projekte in der Cloud.</p>'; return; }
         const myEmail = (state.user.email || '').toLowerCase();
         const sharedWithMe = {};   // project_id -> Freigabe an mich
         const sharedByMe = {};     // project_id -> Anzahl Freigaben, die ich erteilt habe
@@ -704,9 +703,15 @@
             if ((s.email || '').toLowerCase() === myEmail) sharedWithMe[s.project_id] = s;
             else sharedByMe[s.project_id] = (sharedByMe[s.project_id] || 0) + 1;
         });
+        // Admins duerfen laut Datenbankregeln alle Projekte lesen (fuer die separate
+        // Nutzerverwaltung). In diesem normalen Lade-Dialog sollen aber nur eigene und
+        // tatsaechlich mit mir geteilte Projekte erscheinen - sonst wirken fremde,
+        // nicht geteilte Projekte faelschlich wie "von unbekannt geteilt".
+        const visible = (data || []).filter(p => p.user_id === state.user.id || sharedWithMe[p.id]);
+        if (!visible.length) { list.innerHTML = '<p class="hint">Noch keine Projekte in der Cloud.</p>'; return; }
         const openId = state.currentProjectId || state.viewingProjectId;
         list.innerHTML = '';
-        data.forEach(p => {
+        visible.forEach(p => {
             const own = p.user_id === state.user.id;
             const share = own ? null : sharedWithMe[p.id];
             const perm = own ? 'owner' : (share ? share.permission : 'view');
