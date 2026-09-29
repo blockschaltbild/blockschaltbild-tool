@@ -3,6 +3,30 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.43.0 – 2026-09-29
+
+- Fehlerbehebung/Verbesserung: Das Erweitern einer bestehenden Gruppe (Punkt aus 1.42.0) funktionierte in der Praxis nicht zuverlässig, da vorher zwingend zuerst explizit auf die Gruppe geklickt werden musste. Jetzt erkennt die App automatisch, sobald eine Mehrfachauswahl (per Rahmenauswahl/Marquee oder Umschalt-Klick) teils aus Mitgliedern einer bestehenden Gruppe und teils aus neuen Geräten/Textfeldern besteht, und bietet direkt den Button „Zur Gruppe hinzufügen" an – ganz ohne die Gruppe vorher separat auswählen zu müssen. Zusätzlich bleibt eine zuvor einzeln angeklickte Auswahl jetzt erhalten, wenn danach mit Umschalt-Taste weitere Elemente oder eine Gruppe dazu ausgewählt werden.
+
+## Version 1.42.2 – 2026-09-29
+
+- Fehlerbehebung: Die Gruppe ließ sich in Version 1.42.1 nur durch einen sehr präzisen Klick auf den winzigen Gruppennamen auswählen. Jetzt reicht ein Klick auf eine beliebige freie Stelle innerhalb des gestrichelten Gruppenrahmens, um die Gruppe auszuwählen und Elemente hinzuzufügen.
+
+## Version 1.42.1 – 2026-09-29
+
+- Fehlerbehebung: Eine nicht eingeklappte Gruppe ließ sich nicht selbst auswählen, wodurch der Button „Zur Gruppe hinzufügen" nie erschien und stattdessen fälschlich „Ein Teil der Auswahl gehört bereits zu einer Gruppierung" gemeldet wurde. Ein Klick auf den Gruppennamen wählt die Gruppe jetzt auch im ausgeklappten Zustand aus.
+
+## Version 1.42.0 – 2026-09-29
+
+- Neu: Bestehende Gruppen können jetzt erweitert werden, ohne sie aufzulösen oder die Gruppen-Zeichenfläche zu öffnen. Dazu die Gruppe anklicken (markiert sie) und anschließend weitere Geräte/Textfelder per Umschalt-Klick zusätzlich auswählen – im Eigenschaften-Panel erscheint dann der Button „Zur Gruppe hinzufügen".
+
+## Version 1.41.0 – 2026-09-29
+
+- Neu: Textfelder können jetzt zusammen mit Geräten gruppiert werden. Sie lassen sich per Umschalt-Klick oder Rahmenauswahl (Marquee) zusammen mit Geräten mehrfach auswählen und über „Auswahl gruppieren" in eine gemeinsame Gruppe packen. Gruppieren, Auflösen, Einklappen/Ausklappen, das Öffnen der Gruppen-Zeichenfläche sowie Kopieren/Einfügen einer Gruppe funktionieren jetzt auch mit enthaltenen Textfeldern.
+
+## Version 1.40.0 – 2026-09-29
+
+- Neu: Textfelder können jetzt wie Geräte kopiert (⌘/Strg+C) und eingefügt (⌘/Strg+V) werden – auch auf ein anderes Zeichenblatt. Bisher hatte das Kopieren bei ausgewähltem Textfeld keine Wirkung.
+
 ## Version 1.39.1 – 2026-09-12
 
 - Fehlerbehebung: Im Dialog „Aus Cloud laden" konnten Admin-Konten fremde Projekte anderer Nutzer sehen, die gar nicht mit ihnen geteilt wurden – die Datenbankregel für die Admin-Verwaltung erlaubt Admins den Lesezugriff auf alle Projekte, wodurch diese im normalen Lade-Dialog fälschlich als „Nur lesen · Freigegeben von: unbekannt" erschienen. Der Dialog zeigt jetzt nur noch eigene und tatsächlich mit einem geteilte Projekte an.

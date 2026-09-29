@@ -8,8 +8,8 @@ const ShortcutsMixin = {
             { section: 'Bearbeiten', items: [
                 { label: 'Rückgängig', combos: [{ mod: true, keys: ['z'] }], run: () => this.undo() },
                 { label: 'Wiederherstellen', combos: [{ mod: true, keys: ['y'] }, { mod: true, shift: true, keys: ['z'] }], run: () => this.redo() },
-                { label: 'Markierte Geräte/Gruppe kopieren', combos: [{ mod: true, keys: ['c'] }], run: () => this.copySelectedDevice() },
-                { label: 'Geräte einfügen (auch auf anderem Blatt)', combos: [{ mod: true, keys: ['v'] }], run: () => this.pasteDevice() },
+                { label: 'Markierte Geräte/Gruppe/Textfeld kopieren', combos: [{ mod: true, keys: ['c'] }], run: () => this.copySelectedDevice() },
+                { label: 'Geräte/Textfeld einfügen (auch auf anderem Blatt)', combos: [{ mod: true, keys: ['v'] }], run: () => this.pasteDevice() },
                 { label: 'Markiertes Element löschen', combos: [{ keys: ['Delete'] }, { keys: ['Backspace'] }], info: true },
                 { label: 'Dialog schließen / Verbindung abbrechen', combos: [{ keys: ['Escape'] }], info: true }
             ]},
@@ -114,22 +114,58 @@ const ShortcutsMixin = {
     },
 
     copySelectedDevice() {
+        if (this.selectedElement && this.selectedElement.type === 'textbox') {
+            const box = JSON.parse(JSON.stringify(this.selectedElement.element));
+            this.clipboardSelection = { devices: [], connections: [], textboxes: [box], isGroup: false, groupName: null };
+            return;
+        }
         const source = this.getCopySourceDeviceIds();
         if (!source) return;
         const devices = this.devices.filter(d => source.ids.includes(d.id)).map(d => JSON.parse(JSON.stringify(d)));
-        if (!devices.length) return;
         const idSet = new Set(devices.map(d => d.id));
         const connections = this.connections
             .filter(c => idSet.has(c.fromDevice) && idSet.has(c.toDevice))
             .map(c => JSON.parse(JSON.stringify(c)));
-        this.clipboardSelection = { devices, connections, isGroup: source.isGroup, groupName: source.groupName };
+        let textboxes = [];
+        if (source.isGroup) {
+            const group = this.deviceGroups.find(g => g.id === this.selectedGroupId);
+            if (group) {
+                textboxes = this.textboxes
+                    .filter(t => (group.textboxIds || []).includes(t.id))
+                    .map(t => JSON.parse(JSON.stringify(t)));
+            }
+        }
+        if (!devices.length && !textboxes.length) return;
+        this.clipboardSelection = { devices, connections, textboxes, isGroup: source.isGroup, groupName: source.groupName };
     },
 
     pasteDevice() {
         const clip = this.clipboardSelection;
-        if (!clip || !clip.devices.length) return;
+        if (!clip || (!clip.devices.length && !(clip.textboxes && clip.textboxes.length))) return;
         this.recordHistory();
         const offset = this.gridSize || 20;
+
+        if (!clip.devices.length && clip.textboxes && clip.textboxes.length) {
+            const newBoxes = clip.textboxes.map(src => {
+                const box = {
+                    id: `textbox-${this.nextTextboxId++}`,
+                    text: src.text,
+                    x: this.snap(src.x + offset),
+                    y: this.snap(src.y + offset),
+                    fontSize: src.fontSize,
+                    textColor: src.textColor,
+                    borderColor: src.borderColor
+                };
+                this.textboxes.push(box);
+                this.renderTextbox(box);
+                return box;
+            });
+            this.updateCanvasSize();
+            this.deselectAll();
+            this.selectElement(newBoxes[0], 'textbox');
+            return;
+        }
+
         const idMap = {};
         const newDevices = [];
         clip.devices.forEach(src => {
@@ -171,9 +207,25 @@ const ShortcutsMixin = {
             this.renderConnection(connection);
         });
 
-        if (clip.isGroup && newDevices.length >= 2) {
+        const newTextboxes = (clip.textboxes || []).map(src => {
+            const box = {
+                id: `textbox-${this.nextTextboxId++}`,
+                text: src.text,
+                x: this.snap(src.x + offset),
+                y: this.snap(src.y + offset),
+                fontSize: src.fontSize,
+                textColor: src.textColor,
+                borderColor: src.borderColor
+            };
+            this.textboxes.push(box);
+            this.renderTextbox(box);
+            return box;
+        });
+        this.updateCanvasSize();
+
+        if (clip.isGroup && (newDevices.length + newTextboxes.length) >= 2) {
             const num = this.nextDeviceGroupId++;
-            this.deviceGroups.push({ id: `devgroup-${num}`, name: clip.groupName ? `${clip.groupName} (Kopie)` : `Gruppe ${num}`, deviceIds: newDevices.map(d => d.id) });
+            this.deviceGroups.push({ id: `devgroup-${num}`, name: clip.groupName ? `${clip.groupName} (Kopie)` : `Gruppe ${num}`, deviceIds: newDevices.map(d => d.id), textboxIds: newTextboxes.map(t => t.id) });
         }
         this.renderGroupOutlines();
         this.drawCrossingBridges();
@@ -181,10 +233,12 @@ const ShortcutsMixin = {
         clip.devices.forEach((src, i) => { src.x = newDevices[i].x; src.y = newDevices[i].y; });
 
         this.deselectAll();
-        if (newDevices.length === 1) {
-            this.selectElement(newDevices[0], 'device');
+        if (newDevices.length + newTextboxes.length === 1) {
+            if (newDevices.length === 1) this.selectElement(newDevices[0], 'device');
+            else this.selectElement(newTextboxes[0], 'textbox');
         } else {
             this.selectedDevices = newDevices.map(d => d.id);
+            this.selectedTextboxes = newTextboxes.map(t => t.id);
             this.renderMultiSelectHighlight();
             this.showSelectionPanel();
         }

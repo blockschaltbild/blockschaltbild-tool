@@ -197,7 +197,7 @@ const EventsMixin = {
         this.svg.addEventListener('dblclick', (e) => this.onDoubleClick(e));
         
         this.svg.addEventListener('contextmenu', (e) => {
-            const groupBlock = e.target.closest('.group-collapsed-block');
+            const groupBlock = e.target.closest('.group-collapsed-block') || e.target.closest('.group-outline') || e.target.closest('.group-label');
             if (groupBlock) {
                 e.preventDefault();
                 if (this.readOnly) { this.notifyReadOnly(); return; }

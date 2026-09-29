@@ -871,8 +871,9 @@ const ExportMixin = {
             if (page.groupId) {
                 const group = (sheet.deviceGroups || []).find(g => g.id === page.groupId);
                 const memberIds = new Set(group ? group.deviceIds : []);
+                const memberTextIds = new Set(group ? (group.textboxIds || []) : []);
                 devices = devices.filter(d => memberIds.has(d.id));
-                textboxes = [];
+                textboxes = textboxes.filter(t => memberTextIds.has(t.id));
             }
             const diagram = this.getDiagramBoundsFor(devices, textboxes);
             const pageFit = Math.min(drawArea.availableWidth / diagram.width, drawArea.availableHeight / diagram.height);

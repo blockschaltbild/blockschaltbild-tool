@@ -1434,6 +1434,12 @@ input[type="checkbox"] {
     stroke-width: 3;
 }
 
+.textbox-block.multi-selected rect.textbox-frame {
+    stroke: var(--ict-violet);
+    stroke-width: 3;
+    stroke-dasharray: 5 3;
+}
+
 .textbox-block text.textbox-text {
     font-weight: 600;
     pointer-events: none;

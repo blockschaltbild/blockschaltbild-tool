@@ -17,6 +17,7 @@ class BlockDiagramEditor {
         this.deviceGroups = [];
         this.nextDeviceGroupId = 1;
         this.selectedDevices = [];
+        this.selectedTextboxes = [];
         this.draggedGroup = null;
         this.groupDragStart = null;
         this.draggedGroupBlock = null;
@@ -358,6 +359,7 @@ class BlockDiagramEditor {
         if (!sheet.deviceGroups) sheet.deviceGroups = [];
         this.deviceGroups = sheet.deviceGroups;
         this.selectedDevices = [];
+        this.selectedTextboxes = [];
         this.devicesLayer.innerHTML = '';
         this.connectionsLayer.innerHTML = '';
         this.textboxesLayer.innerHTML = '';
@@ -641,9 +643,11 @@ class BlockDiagramEditor {
 
 
     deleteSelected() {
-        if (this.selectedDevices && this.selectedDevices.length > 1) {
+        const multiCount = (this.selectedDevices ? this.selectedDevices.length : 0) + (this.selectedTextboxes ? this.selectedTextboxes.length : 0);
+        if (multiCount > 1) {
             this.recordHistory();
-            const ids = new Set(this.selectedDevices);
+            const ids = new Set(this.selectedDevices || []);
+            const boxIds = new Set(this.selectedTextboxes || []);
             this.connections = this.connections.filter(c => {
                 if (ids.has(c.fromDevice) || ids.has(c.toDevice)) {
                     document.getElementById(c.id)?.remove();
@@ -658,7 +662,15 @@ class BlockDiagramEditor {
                 }
                 return true;
             });
+            this.textboxes = this.textboxes.filter(t => {
+                if (boxIds.has(t.id)) {
+                    document.getElementById(t.id)?.remove();
+                    return false;
+                }
+                return true;
+            });
             ids.forEach(id => this.removeDeviceFromGroups(id));
+            boxIds.forEach(id => this.removeTextboxFromGroups(id));
             this.deselectAll();
             this.cleanupConverters();
             this.renderGroupOutlines();
@@ -698,6 +710,7 @@ class BlockDiagramEditor {
         } else if (this.selectedElement.type === 'textbox') {
             const box = this.selectedElement.element;
             this.textboxes = this.textboxes.filter(t => t.id !== box.id);
+            this.removeTextboxFromGroups(box.id);
             this.storeActiveSheet();
             document.getElementById(box.id)?.remove();
         }
@@ -720,6 +733,7 @@ class BlockDiagramEditor {
         this.deviceGroups = [];
         this.nextDeviceGroupId = 1;
         this.selectedDevices = [];
+        this.selectedTextboxes = [];
         this.sheets = [{ id: 1, name: 'Blatt 1', devices: this.devices, connections: this.connections, textboxes: this.textboxes, deviceGroups: this.deviceGroups }];
         this.activeSheet = 0;
         this.nextSheetId = 2;

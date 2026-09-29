@@ -3,15 +3,33 @@ const GroupsMixin = {
         return this.deviceGroups.find(g => g.deviceIds.includes(deviceId)) || null;
     },
 
+    findGroupForTextbox(textboxId) {
+        return this.deviceGroups.find(g => (g.textboxIds || []).includes(textboxId)) || null;
+    },
+
+    pruneEmptyGroups() {
+        this.deviceGroups = this.deviceGroups.filter(g => (g.deviceIds.length + (g.textboxIds || []).length) >= 2);
+    },
+
     removeDeviceFromGroups(deviceId) {
         this.deviceGroups.forEach(g => {
             const idx = g.deviceIds.indexOf(deviceId);
             if (idx !== -1) g.deviceIds.splice(idx, 1);
         });
-        this.deviceGroups = this.deviceGroups.filter(g => g.deviceIds.length >= 2);
+        this.pruneEmptyGroups();
+    },
+
+    removeTextboxFromGroups(textboxId) {
+        this.deviceGroups.forEach(g => {
+            if (!g.textboxIds) return;
+            const idx = g.textboxIds.indexOf(textboxId);
+            if (idx !== -1) g.textboxIds.splice(idx, 1);
+        });
+        this.pruneEmptyGroups();
     },
 
     toggleMultiSelect(device) {
+        this.migrateSingleSelectionToMulti();
         const idx = this.selectedDevices.indexOf(device.id);
         if (idx !== -1) {
             this.selectedDevices.splice(idx, 1);
@@ -22,42 +40,161 @@ const GroupsMixin = {
         this.showSelectionPanel();
     },
 
+    toggleMultiSelectTextbox(box) {
+        this.migrateSingleSelectionToMulti();
+        if (!this.selectedTextboxes) this.selectedTextboxes = [];
+        const idx = this.selectedTextboxes.indexOf(box.id);
+        if (idx !== -1) {
+            this.selectedTextboxes.splice(idx, 1);
+        } else {
+            this.selectedTextboxes.push(box.id);
+        }
+        this.renderMultiSelectHighlight();
+        this.showSelectionPanel();
+    },
+
     clearMultiSelect() {
         if (!this.selectedDevices) this.selectedDevices = [];
-        if (this.selectedDevices.length === 0) return;
+        if (!this.selectedTextboxes) this.selectedTextboxes = [];
+        if (this.selectedDevices.length === 0 && this.selectedTextboxes.length === 0) return;
         this.selectedDevices = [];
+        this.selectedTextboxes = [];
         this.renderMultiSelectHighlight();
     },
 
     renderMultiSelectHighlight() {
         document.querySelectorAll('.device-block.multi-selected').forEach(el => el.classList.remove('multi-selected'));
+        document.querySelectorAll('.textbox-block.multi-selected').forEach(el => el.classList.remove('multi-selected'));
         this.selectedDevices.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('multi-selected');
+        });
+        (this.selectedTextboxes || []).forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('multi-selected');
         });
     },
 
+    migrateSingleSelectionToMulti() {
+        if (!this.selectedElement) return;
+        if (!this.selectedDevices) this.selectedDevices = [];
+        if (!this.selectedTextboxes) this.selectedTextboxes = [];
+        const { element, type } = this.selectedElement;
+        if (type === 'device' && !this.selectedDevices.includes(element.id)) {
+            this.selectedDevices.push(element.id);
+        } else if (type === 'textbox' && !this.selectedTextboxes.includes(element.id)) {
+            this.selectedTextboxes.push(element.id);
+        }
+        const el = document.getElementById(element.id);
+        if (el) el.classList.remove('selected');
+        if (this.handlesLayer) this.handlesLayer.innerHTML = '';
+        this.selectedElement = null;
+    },
+
+    getTouchedGroups() {
+        const groupIds = new Set();
+        this.selectedDevices.forEach(id => {
+            const g = this.findGroupForDevice(id);
+            if (g) groupIds.add(g.id);
+        });
+        (this.selectedTextboxes || []).forEach(id => {
+            const g = this.findGroupForTextbox(id);
+            if (g) groupIds.add(g.id);
+        });
+        return [...groupIds].map(id => this.deviceGroups.find(g => g.id === id)).filter(Boolean);
+    },
+
     showSelectionPanel() {
         const panel = document.getElementById('propertiesPanel');
         if (!panel) return;
-        const count = this.selectedDevices.length;
+        const devCount = this.selectedDevices.length;
+        const boxCount = (this.selectedTextboxes || []).length;
+        const count = devCount + boxCount;
+
+        let activeGroup = this.selectedGroupId ? this.deviceGroups.find(g => g.id === this.selectedGroupId) : null;
+        const touchedGroups = this.getTouchedGroups();
+
+        if (!activeGroup && touchedGroups.length === 1) {
+            activeGroup = touchedGroups[0];
+        }
+
+        if (touchedGroups.length > 1 || (activeGroup && touchedGroups.some(g => g.id !== activeGroup.id))) {
+            const label = count === 1 ? (boxCount ? '1 Textfeld' : '1 Gerät') : `${count} Elemente`;
+            panel.innerHTML = `
+                <h3>${label} ausgewählt</h3>
+                <p class="hint">Die Auswahl gehört zu mehreren unterschiedlichen Gruppen. Bitte zuerst eine der Gruppen auflösen, bevor Elemente zusammengeführt werden können.</p>
+            `;
+            return;
+        }
+
+        if (activeGroup) {
+            const newDeviceIds = this.selectedDevices.filter(id => !activeGroup.deviceIds.includes(id));
+            const newTextboxIds = (this.selectedTextboxes || []).filter(id => !(activeGroup.textboxIds || []).includes(id));
+            const addCount = newDeviceIds.length + newTextboxIds.length;
+            if (addCount === 0) {
+                panel.innerHTML = `
+                    <h3>Gruppe „${this.escapeHtml(activeGroup.name)}" ausgewählt</h3>
+                    <p class="hint">Umschalt-Klick auf weitere Geräte oder Textfelder wählt sie zusätzlich aus, um sie dieser Gruppe hinzuzufügen.</p>
+                `;
+                return;
+            }
+            const label = count === 1 ? (boxCount ? '1 Textfeld' : '1 Gerät') : `${count} Elemente`;
+            panel.innerHTML = `
+                <h3>${label} ausgewählt</h3>
+                <p class="hint">${addCount} davon gehören noch nicht zur Gruppe „${this.escapeHtml(activeGroup.name)}". Umschalt-Klick fügt weitere Geräte/Textfelder hinzu oder entfernt sie wieder.</p>
+                <button type="button" id="btnAddToGroup">➕ Zur Gruppe „${this.escapeHtml(activeGroup.name)}" hinzufügen</button>
+            `;
+            const addBtn = document.getElementById('btnAddToGroup');
+            if (addBtn) addBtn.addEventListener('click', () => this.addSelectionToGroup(activeGroup.id));
+            return;
+        }
+
         if (count === 0) {
             panel.innerHTML = '<p class="hint">Wählen Sie ein Element aus</p>';
             return;
         }
         if (count === 1) {
-            panel.innerHTML = '<h3>1 Gerät ausgewählt</h3><p class="hint">Umschalt-Klick fügt weitere Geräte zur Auswahl hinzu.</p>';
+            const label = boxCount ? 'Textfeld' : 'Gerät';
+            panel.innerHTML = `<h3>1 ${label} ausgewählt</h3><p class="hint">Umschalt-Klick fügt weitere Geräte/Textfelder zur Auswahl hinzu.</p>`;
             return;
         }
-        const alreadyGrouped = this.selectedDevices.some(id => this.findGroupForDevice(id));
+        const label = boxCount ? `${count} Elemente` : `${count} Geräte`;
         panel.innerHTML = `
-            <h3>${count} Geräte ausgewählt</h3>
-            <p class="hint">Umschalt-Klick fügt weitere Geräte zur Auswahl hinzu oder entfernt sie.</p>
-            ${alreadyGrouped ? '<p class="hint">Ein Teil der Auswahl gehört bereits zu einer Gruppierung.</p>' : ''}
-            <button type="button" id="btnGroupSelection" ${alreadyGrouped ? 'disabled' : ''}>🔗 Auswahl gruppieren</button>
+            <h3>${label} ausgewählt</h3>
+            <p class="hint">Umschalt-Klick fügt weitere Geräte/Textfelder zur Auswahl hinzu oder entfernt sie.</p>
+            <button type="button" id="btnGroupSelection">🔗 Auswahl gruppieren</button>
         `;
         const btn = document.getElementById('btnGroupSelection');
         if (btn) btn.addEventListener('click', () => this.groupSelectedDevices());
+    },
+
+    addSelectionToGroup(groupId) {
+        if (this.readOnly) { this.notifyReadOnly(); return; }
+        if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
+        const targetGroupId = groupId || this.selectedGroupId;
+        const group = this.deviceGroups.find(g => g.id === targetGroupId);
+        if (!group) return;
+        if (!group.textboxIds) group.textboxIds = [];
+        const newDeviceIds = this.selectedDevices.filter(id => !group.deviceIds.includes(id));
+        const newTextboxIds = (this.selectedTextboxes || []).filter(id => !group.textboxIds.includes(id));
+        if (!newDeviceIds.length && !newTextboxIds.length) return;
+        const conflicting = newDeviceIds.some(id => this.findGroupForDevice(id))
+            || newTextboxIds.some(id => this.findGroupForTextbox(id));
+        if (conflicting) {
+            alert('Ein Teil der ausgewählten Elemente gehört bereits zu einer anderen Gruppierung. Bitte diese zuerst auflösen.');
+            return;
+        }
+        this.recordHistory();
+        group.deviceIds.push(...newDeviceIds);
+        group.textboxIds.push(...newTextboxIds);
+        this.clearMultiSelect();
+        this.selectedGroupId = null;
+        if (group.collapsed) {
+            newDeviceIds.forEach(id => document.getElementById(id)?.remove());
+            newTextboxIds.forEach(id => document.getElementById(id)?.remove());
+        }
+        this.renderGroupOutlines();
+        this.showSelectionPanel();
     },
 
     getActiveGroupForShortcut() {
@@ -69,8 +206,16 @@ const GroupsMixin = {
             const g = this.findGroupForDevice(this.selectedElement.element.id);
             if (g) return g;
         }
+        if (this.selectedElement && this.selectedElement.type === 'textbox') {
+            const g = this.findGroupForTextbox(this.selectedElement.element.id);
+            if (g) return g;
+        }
         for (const id of this.selectedDevices) {
             const g = this.findGroupForDevice(id);
+            if (g) return g;
+        }
+        for (const id of (this.selectedTextboxes || [])) {
+            const g = this.findGroupForTextbox(id);
             if (g) return g;
         }
         return null;
@@ -78,8 +223,8 @@ const GroupsMixin = {
 
     groupSelectedDevicesShortcut() {
         if (this.readOnly) { this.notifyReadOnly(); return; }
-        if (this.selectedDevices.length < 2) {
-            alert('Bitte mindestens zwei Geräte mit Umschalt-Klick auswählen, um sie zu gruppieren.');
+        if (this.selectedDevices.length + (this.selectedTextboxes || []).length < 2) {
+            alert('Bitte mindestens zwei Geräte/Textfelder mit Umschalt-Klick auswählen, um sie zu gruppieren.');
             return;
         }
         this.groupSelectedDevices();
@@ -108,15 +253,17 @@ const GroupsMixin = {
     groupSelectedDevices() {
         if (this.readOnly) { this.notifyReadOnly(); return; }
         if (this.activeGroupWorkspace) { alert('Bitte zuerst die Gruppen-Zeichenfläche schließen.'); return; }
-        if (this.selectedDevices.length < 2) return;
-        const alreadyGrouped = this.selectedDevices.filter(id => this.findGroupForDevice(id));
-        if (alreadyGrouped.length) {
-            alert('Ein Teil der ausgewählten Geräte gehört bereits zu einer Gruppierung. Bitte diese zuerst auflösen.');
+        const selTextboxes = this.selectedTextboxes || [];
+        if (this.selectedDevices.length + selTextboxes.length < 2) return;
+        const alreadyGrouped = this.selectedDevices.some(id => this.findGroupForDevice(id))
+            || selTextboxes.some(id => this.findGroupForTextbox(id));
+        if (alreadyGrouped) {
+            alert('Ein Teil der ausgewählten Elemente gehört bereits zu einer Gruppierung. Bitte diese zuerst auflösen.');
             return;
         }
         this.recordHistory();
         const num = this.nextDeviceGroupId++;
-        this.deviceGroups.push({ id: `devgroup-${num}`, name: `Gruppe ${num}`, deviceIds: [...this.selectedDevices] });
+        this.deviceGroups.push({ id: `devgroup-${num}`, name: `Gruppe ${num}`, deviceIds: [...this.selectedDevices], textboxIds: [...selTextboxes] });
         this.clearMultiSelect();
         this.renderGroupOutlines();
         this.deselectAll();
@@ -154,6 +301,10 @@ const GroupsMixin = {
             group.deviceIds.forEach(id => {
                 const d = this.devices.find(x => x.id === id);
                 if (d) this.renderDevice(d);
+            });
+            (group.textboxIds || []).forEach(id => {
+                const t = this.textboxes.find(x => x.id === id);
+                if (t) this.renderTextbox(t);
             });
             this.updateConnections();
         }
@@ -205,6 +356,16 @@ const GroupsMixin = {
                 this.renderDevice(d);
             }
         });
+        (group.textboxIds || []).forEach(id => {
+            const t = this.textboxes.find(x => x.id === id);
+            if (!t) return;
+            if (group.collapsed) {
+                const el = document.getElementById(t.id);
+                if (el) el.remove();
+            } else {
+                this.renderTextbox(t);
+            }
+        });
         this.updateConnections();
         this.renderGroupOutlines();
         this.renderSheetTabs();
@@ -221,6 +382,8 @@ const GroupsMixin = {
 
         const memberDevices = this.devices.filter(d => group.deviceIds.includes(d.id));
         const memberIds = new Set(memberDevices.map(d => d.id));
+        const memberTextboxes = this.textboxes.filter(t => (group.textboxIds || []).includes(t.id));
+        const memberTextboxIds = new Set(memberTextboxes.map(t => t.id));
         const internalConns = this.connections.filter(c => memberIds.has(c.fromDevice) && memberIds.has(c.toDevice));
         const externalConns = this.connections.filter(c => memberIds.has(c.fromDevice) !== memberIds.has(c.toDevice));
         const anchorBounds = this.getGroupBounds(group);
@@ -228,6 +391,7 @@ const GroupsMixin = {
         this.activeGroupWorkspace = {
             groupId: group.id,
             originalDeviceIds: new Set(memberIds),
+            originalTextboxIds: memberTextboxIds,
             originalConnectionIds: new Set(internalConns.map(c => c.id)),
             externalConnections: externalConns,
             originalAnchor: anchorBounds ? { x: anchorBounds.minX, y: anchorBounds.minY } : { x: 0, y: 0 },
@@ -240,7 +404,7 @@ const GroupsMixin = {
 
         this.devices = memberDevices;
         this.connections = internalConns;
-        this.textboxes = [];
+        this.textboxes = memberTextboxes;
         this.deviceGroups = [];
         this.selectedGroupId = null;
 
@@ -252,6 +416,7 @@ const GroupsMixin = {
         this.bulkRender = true;
         this.connections.forEach(c => this.renderConnection(c));
         this.bulkRender = false;
+        this.textboxes.forEach(t => this.renderTextbox(t));
         this.drawCrossingBridges();
         this.renderGroupOutlines();
         this.drawGroupWorkspaceExternalConnections();
@@ -328,18 +493,25 @@ const GroupsMixin = {
         const group = ws.savedDeviceGroups.find(g => g.id === ws.groupId);
         const currentDevices = this.devices;
         const currentConnections = this.connections;
+        const currentTextboxes = this.textboxes;
         const newMemberIds = new Set(currentDevices.map(d => d.id));
+        const newTextboxIds = new Set(currentTextboxes.map(t => t.id));
 
         let curMinX = Infinity, curMinY = Infinity;
         currentDevices.forEach(d => {
             curMinX = Math.min(curMinX, d.x);
             curMinY = Math.min(curMinY, d.y);
         });
+        currentTextboxes.forEach(t => {
+            curMinX = Math.min(curMinX, t.x);
+            curMinY = Math.min(curMinY, t.y);
+        });
         if (curMinX !== Infinity) {
             const dx = ws.originalAnchor.x - curMinX;
             const dy = ws.originalAnchor.y - curMinY;
             if (dx !== 0 || dy !== 0) {
                 currentDevices.forEach(d => { d.x += dx; d.y += dy; });
+                currentTextboxes.forEach(t => { t.x += dx; t.y += dy; });
                 currentConnections.forEach(c => {
                     if (Array.isArray(c.waypoints)) {
                         c.waypoints.forEach(wp => { if (wp) { wp.x += dx; wp.y += dy; } });
@@ -357,6 +529,15 @@ const GroupsMixin = {
             if (!ws.originalDeviceIds.has(d.id)) parentDevices.push(d);
         });
 
+        const parentTextboxes = ws.savedTextboxes;
+        for (let i = parentTextboxes.length - 1; i >= 0; i--) {
+            const id = parentTextboxes[i].id;
+            if (ws.originalTextboxIds.has(id) && !newTextboxIds.has(id)) parentTextboxes.splice(i, 1);
+        }
+        currentTextboxes.forEach(t => {
+            if (!ws.originalTextboxIds.has(t.id)) parentTextboxes.push(t);
+        });
+
         const parentConnections = ws.savedConnections;
         const newConnIds = new Set(currentConnections.map(c => c.id));
         for (let i = parentConnections.length - 1; i >= 0; i--) {
@@ -372,8 +553,10 @@ const GroupsMixin = {
             if (!parentDeviceIds.has(c.fromDevice) || !parentDeviceIds.has(c.toDevice)) parentConnections.splice(i, 1);
         }
 
-        if (group) group.deviceIds = [...newMemberIds];
-        ws.savedTextboxes.push(...this.textboxes);
+        if (group) {
+            group.deviceIds = [...newMemberIds];
+            group.textboxIds = [...newTextboxIds];
+        }
 
         this.devices = ws.savedDevices;
         this.connections = ws.savedConnections;
@@ -440,6 +623,15 @@ const GroupsMixin = {
             maxX = Math.max(maxX, d.x + d.width);
             maxY = Math.max(maxY, d.y + d.height);
         });
+        (group.textboxIds || []).forEach(id => {
+            const t = this.textboxes.find(x => x.id === id);
+            if (!t) return;
+            const size = this.textboxSize(t);
+            minX = Math.min(minX, t.x);
+            minY = Math.min(minY, t.y);
+            maxX = Math.max(maxX, t.x + size.width);
+            maxY = Math.max(maxY, t.y + size.height);
+        });
         if (minX === Infinity) return null;
         return { minX, minY, maxX, maxY };
     },
@@ -469,7 +661,9 @@ const GroupsMixin = {
         const headerH = 26;
         const lineH = 16;
         const width = this.defaultDeviceWidth || 160;
-        const height = headerH + 10 + group.deviceIds.length * lineH + 10;
+        const textboxIds = group.textboxIds || [];
+        const memberCount = group.deviceIds.length + textboxIds.length;
+        const height = headerH + 10 + memberCount * lineH + 10;
         const x = bounds.minX;
         const y = bounds.minY;
 
@@ -552,15 +746,29 @@ const GroupsMixin = {
         divider.setAttribute('class', 'group-collapsed-divider');
         g.appendChild(divider);
 
-        group.deviceIds.forEach((id, i) => {
+        let row = 0;
+        group.deviceIds.forEach(id => {
             const d = this.devices.find(x => x.id === id);
             const item = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             item.setAttribute('x', 10);
-            item.setAttribute('y', headerH + 10 + (i + 1) * lineH - 4);
+            item.setAttribute('y', headerH + 10 + (row + 1) * lineH - 4);
             item.setAttribute('clip-path', `url(#${clipId})`);
             item.setAttribute('class', 'group-collapsed-item');
             item.textContent = d ? d.name : id;
             g.appendChild(item);
+            row++;
+        });
+        textboxIds.forEach(id => {
+            const t = this.textboxes.find(x => x.id === id);
+            const item = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            item.setAttribute('x', 10);
+            item.setAttribute('y', headerH + 10 + (row + 1) * lineH - 4);
+            item.setAttribute('clip-path', `url(#${clipId})`);
+            item.setAttribute('class', 'group-collapsed-item group-collapsed-textitem');
+            const firstLine = t ? String(t.text || '').split('\n')[0] : id;
+            item.textContent = '📝 ' + (firstLine.length > 24 ? firstLine.slice(0, 24) + '…' : firstLine);
+            g.appendChild(item);
+            row++;
         });
 
         this.groupsLayer.appendChild(g);
@@ -590,7 +798,8 @@ const GroupsMixin = {
             rect.setAttribute('class', 'group-outline' + (this.editingGroupId === group.id ? ' group-outline-editing' : ''));
             rect.setAttribute('data-group-id', group.id);
             rect.setAttribute('rx', '10');
-            rect.setAttribute('pointer-events', 'none');
+            rect.setAttribute('pointer-events', this.editingGroupId ? 'none' : 'fill');
+            rect.style.cursor = 'pointer';
             this.groupsLayer.appendChild(rect);
 
             const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -599,7 +808,7 @@ const GroupsMixin = {
             label.setAttribute('class', 'group-label');
             label.setAttribute('data-group-id', group.id);
             label.setAttribute('pointer-events', 'auto');
-            label.style.cursor = 'text';
+            label.style.cursor = 'pointer';
             label.textContent = group.name || '';
             label.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
