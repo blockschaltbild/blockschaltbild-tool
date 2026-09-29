@@ -263,6 +263,21 @@ const CanvasMixin = {
                     this.deselectAll();
                     this.selectedGroupId = group.id;
                     this.showSelectionPanel();
+                    if (groupOutline) {
+                        const rect = this.svg.getBoundingClientRect();
+                        const bounds = this.getGroupBounds(group);
+                        this.draggedGroupBlock = group;
+                        this.groupBlockStartBounds = bounds;
+                        this.groupBlockDragOffset = {
+                            x: (e.clientX - rect.left) / this.zoom - bounds.minX,
+                            y: (e.clientY - rect.top) / this.zoom - bounds.minY
+                        };
+                        this.groupDragStart = {};
+                        [...group.deviceIds, ...(group.textboxIds || [])].forEach(id => {
+                            const item = this.devices.find(x => x.id === id) || this.textboxes.find(x => x.id === id);
+                            if (item) this.groupDragStart[id] = { x: item.x, y: item.y };
+                        });
+                    }
                 }
             }
             return;
@@ -493,12 +508,19 @@ const CanvasMixin = {
             const dx = newX - this.groupBlockStartBounds.minX;
             const dy = newY - this.groupBlockStartBounds.minY;
             [...this.draggedGroupBlock.deviceIds, ...(this.draggedGroupBlock.textboxIds || [])].forEach(id => {
-                const item = this.devices.find(dev => dev.id === id) || this.textboxes.find(t => t.id === id);
+                const device = this.devices.find(dev => dev.id === id);
+                const textbox = !device && this.textboxes.find(t => t.id === id);
+                const item = device || textbox;
                 const s = this.groupDragStart[id];
                 if (!item || !s) return;
                 item.x = s.x + dx;
                 item.y = s.y + dy;
+                if (!this.draggedGroupBlock.collapsed) {
+                    if (device) this.renderDevice(device);
+                    else if (textbox) this.renderTextbox(textbox);
+                }
             });
+            if (!this.draggedGroupBlock.collapsed) this.updateConnections();
             this.renderGroupOutlines();
             this.updateCanvasSize();
             return;

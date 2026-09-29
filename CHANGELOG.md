@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.44.0 – 2026-09-29
+
+- Neu: Bei einer aufgeklappten (nicht eingeklappten) Gruppe kann man jetzt auch durch Klicken und Ziehen auf die graue Fläche/den Rahmen um die Gruppe herum (nicht nur direkt auf ein Gerät) die gesamte Gruppe auswählen und gemeinsam verschieben.
+
 ## Version 1.43.0 – 2026-09-29
 
 - Fehlerbehebung/Verbesserung: Das Erweitern einer bestehenden Gruppe (Punkt aus 1.42.0) funktionierte in der Praxis nicht zuverlässig, da vorher zwingend zuerst explizit auf die Gruppe geklickt werden musste. Jetzt erkennt die App automatisch, sobald eine Mehrfachauswahl (per Rahmenauswahl/Marquee oder Umschalt-Klick) teils aus Mitgliedern einer bestehenden Gruppe und teils aus neuen Geräten/Textfeldern besteht, und bietet direkt den Button „Zur Gruppe hinzufügen" an – ganz ohne die Gruppe vorher separat auswählen zu müssen. Zusätzlich bleibt eine zuvor einzeln angeklickte Auswahl jetzt erhalten, wenn danach mit Umschalt-Taste weitere Elemente oder eine Gruppe dazu ausgewählt werden.
