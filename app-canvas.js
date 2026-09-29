@@ -782,6 +782,15 @@ const CanvasMixin = {
 
     onDoubleClick(e) {
         if (this.readOnly) return;
+        const outline = e.target.closest('.group-outline');
+        if (outline) {
+            const group = this.deviceGroups.find(g => g.id === outline.dataset.groupId);
+            if (group && !group.collapsed) {
+                e.preventDefault();
+                this.enterGroupEditMode(group.id);
+            }
+            return;
+        }
         const deviceBlock = e.target.closest('.device-block');
         if (!deviceBlock) return;
         const group = this.findGroupForDevice(deviceBlock.dataset.deviceId);

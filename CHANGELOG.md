@@ -3,6 +3,10 @@
 Alle wesentlichen Änderungen am Tool werden in dieser Datei festgehalten.
 Archivierte Vorgängerversionen liegen als ZIP unter `blockschaltbild-archiv/`.
 
+## Version 1.45.0 – 2026-09-29
+
+- Neu: Ein Doppelklick auf die graue Fläche/den Rahmen einer aufgeklappten Gruppe versetzt die Gruppe jetzt in den Bearbeitungsmodus (wie bisher der Doppelklick auf ein Gerät der Gruppe).
+
 ## Version 1.44.0 – 2026-09-29
 
 - Neu: Bei einer aufgeklappten (nicht eingeklappten) Gruppe kann man jetzt auch durch Klicken und Ziehen auf die graue Fläche/den Rahmen um die Gruppe herum (nicht nur direkt auf ein Gerät) die gesamte Gruppe auswählen und gemeinsam verschieben.
